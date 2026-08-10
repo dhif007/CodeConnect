@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CodeConnect — Private conversations</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="bg-orb orb-a"></div><div class="bg-orb orb-b"></div>
+  <header class="nav">
+    <button class="brand" onclick="showHome()"><span class="brand-mark">C</span> CodeConnect</button>
+    <nav>
+      <button onclick="showPricing()">Pricing</button>
+      <button class="nav-cta" onclick="showCreate()">Create Room</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="home" class="view active">
+      <div class="hero">
+        <div class="eyebrow">PRIVATE • REAL-TIME • SIMPLE</div>
+        <h1>Private conversations.<br><span>One simple code.</span></h1>
+        <p>Create a private room, share a short code, and start talking in real time — without sharing your phone number.</p>
+        <div class="hero-actions">
+          <button class="primary" onclick="showCreate()">Create Room <span>→</span></button>
+          <button class="secondary" onclick="showJoin()">Join with Code</button>
+        </div>
+        <div class="trust"><span>●</span> No phone number required &nbsp; • &nbsp; 2-person free rooms</div>
+      </div>
+      <div class="steps">
+        <div><b>01</b><h3>Create</h3><p>Generate a private room and receive a unique code.</p></div>
+        <div><b>02</b><h3>Share</h3><p>Send the code or invite link to someone you trust.</p></div>
+        <div><b>03</b><h3>Connect</h3><p>Chat together instantly from different devices.</p></div>
+      </div>
+      <div class="feature-grid">
+        <article><div class="icon">⌁</div><h3>Real-time</h3><p>Messages appear instantly using WebSockets.</p></article>
+        <article><div class="icon">♢</div><h3>Private rooms</h3><p>Each room is isolated from every other room.</p></article>
+        <article><div class="icon">◈</div><h3>Shareable codes</h3><p>Short, random codes make joining simple.</p></article>
+      </div>
+    </section>
+
+    <section id="create" class="view">
+      <div class="panel narrow">
+        <button class="back" onclick="showHome()">← Back</button>
+        <div class="eyebrow">CREATE A PRIVATE ROOM</div>
+        <h2>Start a conversation.</h2>
+        <p class="muted">Enter a display name. We'll generate your room code automatically.</p>
+        <label>Your name</label>
+        <input id="createName" maxlength="24" placeholder="e.g. Rizki" />
+        <button class="primary full" onclick="createRoom()">Create Room →</button>
+        <div id="createError" class="error"></div>
+      </div>
+    </section>
+
+    <section id="created" class="view">
+      <div class="panel narrow center">
+        <div class="success-dot">✓</div>
+        <div class="eyebrow">ROOM READY</div>
+        <h2>Share your code.</h2>
+        <p class="muted">Give this code to the person you want to invite.</p>
+        <div class="code-box" id="createdCode">---</div>
+        <div class="mini-actions">
+          <button class="secondary" onclick="copyCode()">Copy Code</button>
+          <button class="secondary" onclick="shareRoom()">Share</button>
+        </div>
+        <div class="qr-placeholder" id="qrBox">QR</div>
+        <p id="waitStatus" class="status">🟡 Waiting for someone to join...</p>
+        <button class="primary full" onclick="enterCreatedChat()">Enter Chat</button>
+      </div>
+    </section>
+
+    <section id="join" class="view">
+      <div class="panel narrow">
+        <button class="back" onclick="showHome()">← Back</button>
+        <div class="eyebrow">JOIN A ROOM</div>
+        <h2>Enter the code.</h2>
+        <p class="muted">Use the code shared by the room owner.</p>
+        <label>Your name</label>
+        <input id="joinName" maxlength="24" placeholder="e.g. Doni" />
+        <label>Room code</label>
+        <input id="joinCode" maxlength="11" placeholder="XXX-XXX-XXX" class="code-input" oninput="formatCode(this)" />
+        <button class="primary full" onclick="joinRoom()">Connect →</button>
+        <div id="joinError" class="error"></div>
+      </div>
+    </section>
+
+    <section id="chat" class="view">
+      <div class="chat-shell">
+        <div class="chat-head">
+          <div>
+            <button class="back" onclick="leaveRoom()">← Leave</button>
+            <strong>CodeConnect</strong>
+          </div>
+          <div class="room-meta"><span id="connDot">●</span><span id="connText">Connected</span> · <b id="chatCode">---</b> · <span id="people">1</span>/2</div>
+        </div>
+        <div id="messages" class="messages"></div>
+        <div id="typing" class="typing"></div>
+        <form class="composer" onsubmit="sendMessage(event)">
+          <input id="messageInput" autocomplete="off" placeholder="Type a message..." maxlength="2000" />
+          <button class="send" aria-label="Send">↑</button>
+        </form>
+      </div>
+    </section>
+
+    <section id="pricing" class="view">
+      <div class="pricing-head">
+        <div class="eyebrow">SIMPLE PRICING</div>
+        <h2>Start free. Upgrade when you need more.</h2>
+        <p class="muted">Premium features are designed for longer rooms, groups, and richer communication.</p>
+      </div>
+      <div class="plans">
+        <article class="plan"><div class="plan-name">FREE</div><h3>Rp0</h3><p class="muted">For trying CodeConnect.</p><ul><li>✓ 2 users</li><li>✓ 24-hour room</li><li>✓ Real-time text chat</li><li>✓ QR code & sharing</li><li>✓ Basic reactions</li></ul><button class="secondary full" onclick="showCreate()">Create Free Room</button></article>
+        <article class="plan featured"><div class="popular">MOST POPULAR</div><div class="plan-name">PREMIUM</div><h3>Rp15.000 <small>/ month</small></h3><p class="muted">For regular private rooms.</p><ul><li>✓ Up to 20 users</li><li>✓ 30-day rooms</li><li>✓ Chat history</li><li>✓ File sharing</li><li>✓ Voice messages</li><li>✓ Room password</li><li>✓ Custom code & theme</li><li>✓ No ads</li></ul><button class="primary full" onclick="premiumDemo()">Upgrade to Premium</button></article>
+        <article class="plan"><div class="plan-name">YEARLY</div><h3>Rp99.000 <small>/ year</small></h3><p class="muted">Best value for long-term use.</p><ul><li>✓ Everything in Premium</li><li>✓ 365-day access</li><li>✓ Priority features</li><li>✓ No ads</li></ul><button class="secondary full" onclick="premiumDemo()">Choose Yearly</button></article>
+      </div>
+      <p id="premiumNote" class="note"></p>
+    </section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "name": "codeconnect",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Private real-time chat rooms using shareable codes.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1"
+  }
+}
