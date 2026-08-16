@@ -6,6 +6,7 @@ const { Server } = require("socket.io");
 const { Pool } = require("pg");
 
 const app = express();
+app.set("trust proxy", 1);
 const server = http.createServer(app);
 const io = new Server(server);
 
@@ -75,6 +76,13 @@ async function initializeDatabase() {
 
 const ROOM_TTL_MS = 24 * 60 * 60 * 1000;
 
+const ROOM_CODE_REGEX =
+  /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{3}-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{3}-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{3}$/;
+
+const ROOM_CREATE_LIMIT = 5;
+const ROOM_CREATE_WINDOW_MS = 10 * 60 * 1000;
+
+const roomCreationTimestamps = new Map();
 /*
  * Socket yang sedang berada di setiap room.
  * Ini memang tetap disimpan di memory karena
@@ -161,6 +169,42 @@ async function cleanup() {
 
 setInterval(cleanup, 60_000);
 
+function canCreateRoom(ip) {
+  const now = Date.now();
+
+  const previous = roomCreationTimestamps.get(ip) || [];
+
+  const recent = previous.filter(
+    (timestamp) => now - timestamp < ROOM_CREATE_WINDOW_MS
+  );
+
+  if (recent.length >= ROOM_CREATE_LIMIT) {
+    roomCreationTimestamps.set(ip, recent);
+    return false;
+  }
+
+  recent.push(now);
+  roomCreationTimestamps.set(ip, recent);
+
+  return true;
+}
+
+setInterval(() => {
+  const now = Date.now();
+
+  for (const [ip, timestamps] of roomCreationTimestamps) {
+    const recent = timestamps.filter(
+      (timestamp) => now - timestamp < ROOM_CREATE_WINDOW_MS
+    );
+
+    if (recent.length === 0) {
+      roomCreationTimestamps.delete(ip);
+    } else {
+      roomCreationTimestamps.set(ip, recent);
+    }
+  }
+}, 10 * 60 * 1000);
+
 /*
  * =========================================================
  * CREATE ROOM
@@ -169,6 +213,14 @@ setInterval(cleanup, 60_000);
 
 app.post("/api/rooms", async (req, res) => {
   try {
+    const ip = req.ip;
+
+    if (!canCreateRoom(ip)) {
+      return res.status(429).json({
+        error: "Too many rooms created. Please try again later."
+      });
+    }
+
     let code;
 
     while (true) {
@@ -223,6 +275,12 @@ app.get("/api/rooms/:code", async (req, res) => {
     const code = String(req.params.code)
       .toUpperCase()
       .trim();
+
+    if (!ROOM_CODE_REGEX.test(code)) {
+      return res.status(400).json({
+        error: "Invalid room code."
+      });
+    }
 
     const roomResult = await pool.query(
       `
@@ -316,14 +374,21 @@ io.on("connection", (socket) => {
    */
 
   socket.on("join-room", async ({ code, username }, ack) => {
-    try {
-      code = String(code || "")
-        .toUpperCase()
-        .trim();
+  try {
+    code = String(code || "")
+      .toUpperCase()
+      .trim();
 
-      username = String(username || "Guest")
-        .trim()
-        .slice(0, 24) || "Guest";
+    if (!ROOM_CODE_REGEX.test(code)) {
+      return ack?.({
+        ok: false,
+        error: "Invalid room code."
+      });
+    }
+
+    username = String(username || "Guest")
+      .trim()
+      .slice(0, 24) || "Guest";
 
       const roomResult = await pool.query(
         `
