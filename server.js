@@ -303,6 +303,10 @@ app.get("/api/rooms/:code", async (req, res) => {
  * =========================================================
  */
 
+const MESSAGE_RATE_LIMIT = 5;
+const MESSAGE_RATE_WINDOW_MS = 3000;
+const messageTimestamps = new Map();
+
 io.on("connection", (socket) => {
 
   /*
@@ -448,124 +452,133 @@ io.on("connection", (socket) => {
   });
 
   /*
-   * -------------------------------------------------------
-   * MESSAGE
-   * -------------------------------------------------------
-   */
+ * -------------------------------------------------------
+ * MESSAGE
+ * -------------------------------------------------------
+ */
 
-  socket.on("message", async ({ text }, ack) => {
-    try {
-      const code = socket.data.roomCode;
-      const username = socket.data.username;
+socket.on("message", async ({ text }, ack) => {
+  try {
+    const now = Date.now();
 
-      if (!code || !username) {
-        return ack?.({
-          ok: false,
-          error: "Not in a room."
-        });
-      }
+    const previous = messageTimestamps.get(socket.id) || [];
 
-      const clean = String(text || "")
-        .trim()
-        .slice(0, 2000);
+    const recent = previous.filter(
+      (timestamp) => now - timestamp < MESSAGE_RATE_WINDOW_MS
+    );
 
-      if (!clean) {
-        return ack?.({
-          ok: false,
-          error: "Empty message."
-        });
-      }
-
-      const roomResult = await pool.query(
-        `
-        SELECT code
-        FROM rooms
-        WHERE code = $1
-        AND expires_at > NOW()
-        `,
-        [code]
-      );
-
-      if (roomResult.rowCount === 0) {
-        return ack?.({
-          ok: false,
-          error: "Room expired."
-        });
-      }
-
-      const messageId = crypto.randomUUID();
-
-      const messageResult = await pool.query(
-        `
-        INSERT INTO messages (
-          id,
-          room_code,
-          username,
-          text
-        )
-        VALUES ($1, $2, $3, $4)
-        RETURNING
-          id,
-          username,
-          text,
-          EXTRACT(EPOCH FROM created_at) * 1000 AS timestamp
-        `,
-        [
-          messageId,
-          code,
-          username,
-          clean
-        ]
-      );
-
-      const row = messageResult.rows[0];
-
-      const message = {
-        id: row.id,
-        username: row.username,
-        text: row.text,
-        timestamp: Number(row.timestamp)
-      };
-
-      /*
-       * Kirim secara real-time ke semua pengguna
-       * yang berada di room.
-       */
-
-      io.to(code).emit("message", message);
-
-      /*
-       * Batasi histori menjadi 200 pesan terakhir.
-       */
-
-      await pool.query(
-        `
-        DELETE FROM messages
-        WHERE room_code = $1
-        AND id NOT IN (
-          SELECT id
-          FROM messages
-          WHERE room_code = $1
-          ORDER BY created_at DESC
-          LIMIT 200
-        )
-        `,
-        [code]
-      );
-
-      ack?.({
-        ok: true
-      });
-
-    } catch (error) {
-      console.error("Message error:", error);
-
-      ack?.({
+    if (recent.length >= MESSAGE_RATE_LIMIT) {
+      return ack?.({
         ok: false,
-        error: "Failed to send message."
+        error: "Too many messages. Please slow down."
       });
     }
-  });
+
+    recent.push(now);
+    messageTimestamps.set(socket.id, recent);
+
+    const code = socket.data.roomCode;
+    const username = socket.data.username;
+
+    if (!code || !username) {
+      return ack?.({
+        ok: false,
+        error: "Not in a room."
+      });
+    }
+
+    const clean = String(text || "")
+      .trim()
+      .slice(0, 2000);
+
+    if (!clean) {
+      return ack?.({
+        ok: false,
+        error: "Empty message."
+      });
+    }
+
+    const roomResult = await pool.query(
+      `
+      SELECT code
+      FROM rooms
+      WHERE code = $1
+      AND expires_at > NOW()
+      `,
+      [code]
+    );
+
+    if (roomResult.rowCount === 0) {
+      return ack?.({
+        ok: false,
+        error: "Room expired."
+      });
+    }
+
+    const messageId = crypto.randomUUID();
+
+    const messageResult = await pool.query(
+      `
+      INSERT INTO messages (
+        id,
+        room_code,
+        username,
+        text
+      )
+      VALUES ($1, $2, $3, $4)
+      RETURNING
+        id,
+        username,
+        text,
+        EXTRACT(EPOCH FROM created_at) * 1000 AS timestamp
+      `,
+      [
+        messageId,
+        code,
+        username,
+        clean
+      ]
+    );
+
+    const row = messageResult.rows[0];
+
+    const message = {
+      id: row.id,
+      username: row.username,
+      text: row.text,
+      timestamp: Number(row.timestamp)
+    };
+
+    io.to(code).emit("message", message);
+
+    await pool.query(
+      `
+      DELETE FROM messages
+      WHERE room_code = $1
+      AND id NOT IN (
+        SELECT id
+        FROM messages
+        WHERE room_code = $1
+        ORDER BY created_at DESC
+        LIMIT 200
+      )
+      `,
+      [code]
+    );
+
+    ack?.({
+      ok: true
+    });
+
+  } catch (error) {
+    console.error("Message error:", error);
+
+    ack?.({
+      ok: false,
+      error: "Failed to send message."
+    });
+  }
+});
 
   /*
    * -------------------------------------------------------
@@ -624,7 +637,9 @@ io.on("connection", (socket) => {
    */
 
   socket.on("disconnect", () => {
-    const code = socket.data.roomCode;
+  messageTimestamps.delete(socket.id);
+
+  const code = socket.data.roomCode;
 
     if (!code) return;
 
