@@ -362,12 +362,12 @@ io.on("connection", (socket) => {
       const sockets = roomSockets.get(code);
 
       /*
-       * Free room hanya dapat digunakan oleh 2 orang.
+       * Maksimal 50 pengguna dalam satu room.
        */
-      if (sockets.size >= 2) {
+      if (sockets.size >= 50) {
         return ack?.({
           ok: false,
-          error: "This free room is full (2 users)."
+          error: "Room is full (50 users maximum)."
         });
       }
 
