@@ -25,30 +25,15 @@ function formatCode(el){
 }
 
 function generateRoomQR(code){
-  const canvas = $("qrCanvas");
+  const img = $("qrImage");
 
-  if(!canvas || typeof QRCode === "undefined"){
-    console.error("QR Code library is not available.");
+  if(!img){
+    console.error("QR image element not found.");
     return;
   }
 
-  const inviteUrl =
-    `${location.origin}/?join=${encodeURIComponent(code)}`;
-
-  QRCode.toCanvas(
-    canvas,
-    inviteUrl,
-    {
-      width: 220,
-      margin: 2,
-      errorCorrectionLevel: "M"
-    },
-    (error)=>{
-      if(error){
-        console.error("QR generation failed:", error);
-      }
-    }
-  );
+  img.src = `/api/qr/${encodeURIComponent(code)}`;
+  img.alt = `QR code for room ${code}`;
 }
 
 async function createRoom(){
