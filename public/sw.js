@@ -1,14 +1,19 @@
-const CACHE_NAME = "codeconnect-v2";
+/*
+ * =========================================================
+ * CODECONNECT SERVICE WORKER
+ * =========================================================
+ */
 
-const APP_SHELL = [
+const CACHE_NAME = "codeconnect-v1";
+
+const STATIC_FILES = [
   "/",
   "/index.html",
   "/style.css",
   "/app.js",
-  "/manifest.json",
-  "/icon-192.png",
-  "/icon-512.png"
+  "/manifest.json"
 ];
+
 
 /*
  * =========================================================
@@ -16,16 +21,26 @@ const APP_SHELL = [
  * =========================================================
  */
 
-self.addEventListener("install", (event) => {
+self.addEventListener("install", event => {
+
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        return cache.addAll(APP_SHELL);
+
+    caches
+      .open(CACHE_NAME)
+      .then(cache => {
+
+        return cache.addAll(
+          STATIC_FILES
+        );
+
       })
+
   );
 
   self.skipWaiting();
+
 });
+
 
 /*
  * =========================================================
@@ -33,20 +48,36 @@ self.addEventListener("install", (event) => {
  * =========================================================
  */
 
-self.addEventListener("activate", (event) => {
+self.addEventListener("activate", event => {
+
   event.waitUntil(
-    caches.keys()
-      .then((keys) => {
+
+    caches
+      .keys()
+      .then(keys => {
+
         return Promise.all(
+
           keys
-            .filter((key) => key !== CACHE_NAME)
-            .map((key) => caches.delete(key))
+            .filter(
+              key =>
+                key !== CACHE_NAME
+            )
+            .map(
+              key =>
+                caches.delete(key)
+            )
+
         );
+
       })
+
   );
 
   self.clients.claim();
+
 });
+
 
 /*
  * =========================================================
@@ -54,95 +85,216 @@ self.addEventListener("activate", (event) => {
  * =========================================================
  */
 
-self.addEventListener("fetch", (event) => {
-  const request = event.request;
+self.addEventListener("fetch", event => {
 
-  if (request.method !== "GET") {
-    return;
-  }
-
-  const url = new URL(request.url);
-
-  /*
-   * Socket.IO harus selalu online.
-   */
   if (
-    url.pathname.startsWith("/socket.io/")
+    event.request.method !== "GET"
   ) {
     return;
   }
 
-  /*
-   * API tidak boleh memakai cache lama.
-   */
-  if (
-    url.pathname.startsWith("/api/")
-  ) {
-    return;
-  }
-
-  /*
-   * Untuk navigasi halaman:
-   * coba network dulu,
-   * lalu fallback ke index.html.
-   */
-  if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-
-          caches.open(CACHE_NAME)
-            .then((cache) => {
-              cache.put(
-                "/index.html",
-                copy
-              );
-            });
-
-          return response;
-        })
-        .catch(() => {
-          return caches.match(
-            "/index.html"
-          );
-        })
-    );
-
-    return;
-  }
-
-  /*
-   * Untuk CSS, JS, icon, manifest:
-   * network-first supaya update terbaru
-   * lebih cepat masuk.
-   */
   event.respondWith(
-    fetch(request)
-      .then((response) => {
-        if (
-          !response ||
-          response.status !== 200 ||
-          response.type === "opaque"
-        ) {
-          return response;
-        }
+
+    fetch(event.request)
+
+      .then(response => {
 
         const copy =
           response.clone();
 
-        caches.open(CACHE_NAME)
-          .then((cache) => {
+        caches
+          .open(CACHE_NAME)
+          .then(cache => {
+
             cache.put(
-              request,
+              event.request,
               copy
             );
+
           });
 
         return response;
+
       })
+
       .catch(() => {
-        return caches.match(request);
+
+        return caches.match(
+          event.request
+        );
+
       })
+
   );
+
 });
+
+
+/*
+ * =========================================================
+ * PUSH NOTIFICATION
+ * =========================================================
+ */
+
+self.addEventListener("push", event => {
+
+  console.log(
+    "[SW] Push received"
+  );
+
+  let data = {};
+
+  if (event.data) {
+
+    try {
+
+      data =
+        event.data.json();
+
+    } catch (error) {
+
+      data = {
+        body:
+          event.data.text()
+      };
+
+    }
+
+  }
+
+
+  const title =
+    data.title ||
+    "CodeConnect";
+
+
+  const options = {
+
+    body:
+      data.body ||
+      "You have a new message.",
+
+    icon:
+      "/icon-192.png",
+
+    badge:
+      "/icon-192.png",
+
+    tag:
+      data.tag ||
+      "codeconnect-message",
+
+    renotify: true,
+
+    data: {
+
+      url:
+        data.url ||
+        "/",
+
+      roomCode:
+        data.roomCode ||
+        null
+
+    }
+
+  };
+
+
+  event.waitUntil(
+
+    self.registration
+      .showNotification(
+        title,
+        options
+      )
+
+  );
+
+});
+
+
+/*
+ * =========================================================
+ * NOTIFICATION CLICK
+ * =========================================================
+ */
+
+self.addEventListener(
+  "notificationclick",
+  event => {
+
+    event.notification.close();
+
+
+    const targetUrl =
+      event.notification
+        .data?.url ||
+      "/";
+
+
+    event.waitUntil(
+
+      clients
+        .matchAll({
+
+          type: "window",
+
+          includeUncontrolled:
+            true
+
+        })
+
+        .then(
+          clientList => {
+
+            /*
+             * Jika CodeConnect
+             * sudah terbuka,
+             * fokus ke jendela itu.
+             */
+
+            for (
+              const client
+              of clientList
+            ) {
+
+              if (
+                "focus" in client
+              ) {
+
+                client.navigate(
+                  targetUrl
+                );
+
+                return client.focus();
+
+              }
+
+            }
+
+
+            /*
+             * Jika CodeConnect
+             * belum terbuka,
+             * buka aplikasinya.
+             */
+
+            if (
+              clients.openWindow
+            ) {
+
+              return clients
+                .openWindow(
+                  targetUrl
+                );
+
+            }
+
+          }
+        )
+
+    );
+
+  }
+);
