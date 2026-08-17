@@ -1676,8 +1676,7 @@ sendPushToRoom(
 /*
  * Maksimal 200 pesan
  * tersimpan per room.
- */an per room.
-           */
+ */
 
           await pool.query(
             `
