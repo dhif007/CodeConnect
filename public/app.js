@@ -1403,3 +1403,25 @@ window.addEventListener(
     restoreSession();
   }
 );
+/*
+ * =========================================================
+ * PWA SERVICE WORKER
+ * =========================================================
+ */
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", async () => {
+    try {
+      await navigator.serviceWorker.register("/sw.js");
+
+      console.log(
+        "CodeConnect service worker registered."
+      );
+    } catch (error) {
+      console.error(
+        "Service worker registration failed:",
+        error
+      );
+    }
+  });
+}
