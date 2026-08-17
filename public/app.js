@@ -1463,6 +1463,7 @@ window.addEventListener(
   "load",
   () => {
     updateAppHeight();
+    updateNotificationButton();
 
     const params =
       new URLSearchParams(
@@ -1515,7 +1516,116 @@ window.addEventListener(
     restoreSession();
   }
 );
+/*
+ * =========================================================
+ * NOTIFICATION PERMISSION
+ * =========================================================
+ */
 
+function updateNotificationButton() {
+  const button =
+    $("notificationButton");
+
+  if (!button) {
+    return;
+  }
+
+  if (
+    !("Notification" in window)
+  ) {
+    button.textContent =
+      "🔕 Unsupported";
+
+    button.disabled = true;
+
+    return;
+  }
+
+  if (
+    Notification.permission ===
+    "granted"
+  ) {
+    button.textContent =
+      "🔔 Enabled";
+
+    button.disabled = true;
+
+    return;
+  }
+
+  if (
+    Notification.permission ===
+    "denied"
+  ) {
+    button.textContent =
+      "🔕 Blocked";
+
+    button.disabled = true;
+
+    return;
+  }
+
+  button.textContent =
+    "🔔 Enable";
+
+  button.disabled = false;
+}
+
+async function enableNotifications() {
+  if (
+    !("Notification" in window)
+  ) {
+    toast(
+      "Notifications are not supported on this device."
+    );
+
+    return;
+  }
+
+  try {
+    /*
+     * Harus dipanggil langsung dari tap/click user.
+     */
+    const permission =
+      await Notification.requestPermission();
+
+    updateNotificationButton();
+
+    if (
+      permission === "granted"
+    ) {
+      toast(
+        "Notifications enabled."
+      );
+
+      return;
+    }
+
+    if (
+      permission === "denied"
+    ) {
+      toast(
+        "Notifications were blocked."
+      );
+
+      return;
+    }
+
+    toast(
+      "Notification permission was not granted."
+    );
+
+  } catch (error) {
+    console.error(
+      "Notification permission error:",
+      error
+    );
+
+    toast(
+      "Could not enable notifications."
+    );
+  }
+}
 /*
  * =========================================================
  * PWA SERVICE WORKER
