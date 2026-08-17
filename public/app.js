@@ -810,6 +810,14 @@ function enterCreatedChat() {
 
   show("chat");
 
+const input = $("messageInput");
+
+if (input) {
+  input.focus({
+    preventScroll: true
+  });
+}
+
   if (
     socket &&
     socket.connected
@@ -909,6 +917,14 @@ function joinRoom() {
     }
 
     show("chat");
+
+const input = $("messageInput");
+
+if (input) {
+  input.focus({
+    preventScroll: true
+  });
+}
   };
 
   const failedJoin = (error) => {
