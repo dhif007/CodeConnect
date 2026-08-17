@@ -79,6 +79,8 @@ const ROOM_TTL_MS = 24 * 60 * 60 * 1000;
 const ROOM_CODE_REGEX =
   /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{3}-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{3}-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{3}$/;
 
+const USERNAME_REGEX = /^[A-Za-z0-9 _.'-]{1,24}$/;
+
 const ROOM_CREATE_LIMIT = 5;
 const ROOM_CREATE_WINDOW_MS = 10 * 60 * 1000;
 
@@ -391,9 +393,14 @@ io.on("connection", (socket) => {
       });
     }
 
-    username = String(username || "Guest")
-      .trim()
-      .slice(0, 24) || "Guest";
+    username = String(username || "").trim();
+
+if (!USERNAME_REGEX.test(username)) {
+  return ack?.({
+    ok: false,
+    error: "Invalid username. Use 1-24 letters, numbers, spaces, or . _ ' -"
+  });
+}
 
       const roomResult = await pool.query(
         `
