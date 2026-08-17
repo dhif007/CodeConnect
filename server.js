@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const express = require("express");
 const { Server } = require("socket.io");
 const { Pool } = require("pg");
+const QRCode = require("qrcode");
 
 const app = express();
 app.set("trust proxy", 1);
@@ -15,12 +16,7 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-app.use(
-  "/vendor/qrcode",
-  express.static(
-    path.join(__dirname, "node_modules", "qrcode", "build")
-  )
-);
+
 /*
  * =========================================================
  * DATABASE
@@ -359,11 +355,53 @@ app.get("/api/rooms/:code", async (req, res) => {
       participants: sockets ? sockets.size : 0,
       messages
     });
+
   } catch (error) {
     console.error("Get room error:", error);
 
     res.status(500).json({
       error: "Failed to get room."
+    });
+  }
+});
+/*
+ * =========================================================
+ * ROOM QR CODE
+ * =========================================================
+ */
+
+app.get("/api/qr/:code", async (req, res) => {
+  try {
+    const code = String(req.params.code || "")
+      .toUpperCase()
+      .trim();
+
+    if (!ROOM_CODE_REGEX.test(code)) {
+      return res.status(400).json({
+        error: "Invalid room code."
+      });
+    }
+
+    const inviteUrl =
+      `${req.protocol}://${req.get("host")}/?join=${encodeURIComponent(code)}`;
+
+    const qrBuffer = await QRCode.toBuffer(inviteUrl, {
+      type: "png",
+      width: 220,
+      margin: 2,
+      errorCorrectionLevel: "M"
+    });
+
+    res.set("Content-Type", "image/png");
+    res.set("Cache-Control", "no-store");
+
+    res.send(qrBuffer);
+
+  } catch (error) {
+    console.error("QR generation error:", error);
+
+    res.status(500).json({
+      error: "Failed to generate QR code."
     });
   }
 });
