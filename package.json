@@ -8,11 +8,14 @@
     "start": "node server.js",
     "dev": "node server.js"
   },
+  "engines": {
+    "node": "22.x"
+  },
   "dependencies": {
-  "express": "^5.1.0",
-  "pg": "^8.23.0",
-  "qrcode": "1.5.1",
-  "socket.io": "^4.8.1"
-  "web-push": "^3.6.7"
-}
+    "express": "^5.1.0",
+    "pg": "^8.23.0",
+    "qrcode": "1.5.1",
+    "socket.io": "^4.8.1",
+    "web-push": "^3.6.7"
+  }
 }
