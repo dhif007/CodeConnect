@@ -675,61 +675,83 @@ socket.on("message", async ({ text }, ack) => {
   });
 
   /*
-   * -------------------------------------------------------
-   * LEAVE ROOM
-   * -------------------------------------------------------
-   */
+ * -------------------------------------------------------
+ * LEAVE ROOM
+ * -------------------------------------------------------
+ */
 
-  socket.on("leave-room", () => {
-    const code = socket.data.roomCode;
-    const username = socket.data.username;
+socket.on("leave-room", () => {
+  const code = socket.data.roomCode;
+  const username = socket.data.username;
 
-    if (!code) return;
+  if (!code) return;
 
-    const sockets = roomSockets.get(code);
+  const sockets = roomSockets.get(code);
 
-    if (sockets) {
-      sockets.delete(socket.id);
+  if (sockets) {
+    sockets.delete(socket.id);
 
-      socket.to(code).emit("presence", {
-        participants: sockets.size
-      });
+    socket.to(code).emit("presence", {
+      participants: sockets.size
+    });
 
-      socket.to(code).emit("system-message", {
-        text: `${username || "Guest"} left the room.`,
-        timestamp: Date.now()
-      });
+    socket.to(code).emit("system-message", {
+      text: `${username || "Guest"} left the room.`,
+      timestamp: Date.now()
+    });
+
+    /*
+     * Jika sudah tidak ada pengguna,
+     * hapus Set room dari memory.
+     */
+    if (sockets.size === 0) {
+      roomSockets.delete(code);
     }
+  }
 
-    socket.leave(code);
+  socket.leave(code);
 
-    socket.data.roomCode = null;
-    socket.data.username = null;
-  });
+  socket.data.roomCode = null;
+  socket.data.username = null;
 
   /*
-   * -------------------------------------------------------
-   * DISCONNECT
-   * -------------------------------------------------------
+   * Bersihkan rate-limit message milik socket ini.
    */
+  messageTimestamps.delete(socket.id);
+});
 
-  socket.on("disconnect", () => {
+/*
+ * -------------------------------------------------------
+ * DISCONNECT
+ * -------------------------------------------------------
+ */
+
+socket.on("disconnect", () => {
   messageTimestamps.delete(socket.id);
 
   const code = socket.data.roomCode;
 
-    if (!code) return;
+  if (!code) return;
 
-    const sockets = roomSockets.get(code);
+  const sockets = roomSockets.get(code);
 
-    if (sockets) {
-      sockets.delete(socket.id);
+  if (sockets) {
+    sockets.delete(socket.id);
 
-      socket.to(code).emit("presence", {
-        participants: sockets.size
-      });
+    socket.to(code).emit("presence", {
+      participants: sockets.size
+    });
+
+    /*
+     * Jangan biarkan Set kosong tersimpan di memory.
+     */
+    if (sockets.size === 0) {
+      roomSockets.delete(code);
     }
-  });
+  }
+
+  socket.data.roomCode = null;
+  socket.data.username = null;
 });
 
 /*
