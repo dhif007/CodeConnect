@@ -1075,3 +1075,19 @@ button {
       );
   }
 }
+/* =========================================================
+   ROOM READY - LEAVE BUTTON
+   ========================================================= */
+
+#created .created-leave {
+  display: block;
+  width: fit-content;
+  margin: 0 0 24px 0;
+  text-align: left;
+}
+
+@media (max-width: 600px) {
+  #created .created-leave {
+    margin-bottom: 20px;
+  }
+}
