@@ -68,7 +68,7 @@
           <button class="secondary" onclick="shareRoom()">Share</button>
         </div>
         <div class="qr-placeholder" id="qrBox">
-  <canvas id="qrCanvas"></canvas>
+  <img id="qrImage" alt="Room QR Code" />
 </div>
         <p id="waitStatus" class="status">🟡 Waiting for someone to join...</p>
         <button class="primary full" onclick="enterCreatedChat()">Enter Chat</button>
@@ -125,7 +125,6 @@
 
   <div id="toast" class="toast"></div>
   <script src="/socket.io/socket.io.js"></script>
-<script src="/vendor/qrcode/qrcode.min.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>
