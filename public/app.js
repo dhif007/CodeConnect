@@ -4,10 +4,6 @@ let currentCode = null;
 let currentName = null;
 let pendingCreated = null;
 
-/*
- * Menyimpan socket.id yang sudah berhasil join.
- * Socket.IO bisa mendapat socket.id baru setelah reconnect.
- */
 let joinedSocketId = null;
 
 const $ = (id) => document.getElementById(id);
@@ -21,12 +17,17 @@ const views = [
   "pricing"
 ];
 
+/*
+ * =========================================================
+ * MOBILE / IPHONE VIEWPORT
+ * =========================================================
+ */
+
 function updateAppHeight() {
-  document.documentElement.style
-    .setProperty(
-      "--app-height",
-      `${window.innerHeight}px`
-    );
+  document.documentElement.style.setProperty(
+    "--app-height",
+    `${window.innerHeight}px`
+  );
 }
 
 window.addEventListener(
@@ -98,20 +99,6 @@ function loadSession() {
  * =========================================================
  */
 
-/*
- * Setelah user berhasil masuk lewat:
- *
- * ?join=ABC-DEF-GH2
- *
- * URL dibersihkan menjadi:
- *
- * /
- *
- * tanpa refresh.
- *
- * Ini mencegah browser menganggap QR/invite
- * sebagai invite baru setiap kali halaman di-refresh.
- */
 function cleanInviteUrl() {
   const cleanUrl =
     `${location.origin}${location.pathname}`;
@@ -141,34 +128,9 @@ function show(id) {
     }
   });
 
-  document.body.classList.toggle(
-    "chat-mode",
-    id === "chat"
-  );
-
-  window.scrollTo({
-    top: 0,
-    left: 0,
-    behavior: "instant"
-  });
-
   /*
-   * Paksa viewport kembali menyesuaikan layar
-   * setelah pindah view di iPhone.
-   */
-  requestAnimationFrame(() => {
-    window.scrollTo(0, 0);
-
-    document.documentElement.style
-      .setProperty(
-        "--app-height",
-        `${window.innerHeight}px`
-      );
-  });
-}
-  /*
-   * Saat berada di chat, sembunyikan navbar utama.
-   * Chat mempunyai header sendiri.
+   * Saat chat aktif,
+   * navbar utama disembunyikan lewat CSS.
    */
   document.body.classList.toggle(
     "chat-mode",
@@ -176,6 +138,11 @@ function show(id) {
   );
 
   window.scrollTo(0, 0);
+
+  requestAnimationFrame(() => {
+    updateAppHeight();
+    window.scrollTo(0, 0);
+  });
 }
 
 function showHome() {
@@ -212,9 +179,10 @@ function toast(text) {
 
   clearTimeout(window.__toast);
 
-  window.__toast = setTimeout(() => {
-    element.classList.remove("show");
-  }, 2200);
+  window.__toast =
+    setTimeout(() => {
+      element.classList.remove("show");
+    }, 2200);
 }
 
 /*
@@ -224,10 +192,11 @@ function toast(text) {
  */
 
 function formatCode(el) {
-  let value = String(el.value || "")
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "")
-    .slice(0, 9);
+  let value =
+    String(el.value || "")
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "")
+      .slice(0, 9);
 
   el.value =
     value.match(/.{1,3}/g)?.join("-") || "";
@@ -246,6 +215,7 @@ function generateRoomQR(code) {
     console.error(
       "QR image element not found."
     );
+
     return;
   }
 
@@ -258,36 +228,6 @@ function generateRoomQR(code) {
 
 /*
  * =========================================================
- * ACTIVE ROOM
- * =========================================================
- */
-
-function getActiveRoom() {
-  if (currentCode && currentName) {
-    return {
-      code: currentCode,
-      name: currentName,
-      type: "chat"
-    };
-  }
-
-  if (
-    pendingCreated &&
-    pendingCreated.code &&
-    pendingCreated.name
-  ) {
-    return {
-      code: pendingCreated.code,
-      name: pendingCreated.name,
-      type: "created"
-    };
-  }
-
-  return null;
-}
-
-/*
- * =========================================================
  * PARTICIPANTS
  * =========================================================
  */
@@ -296,7 +236,8 @@ function updatePeople(number) {
   const people = $("people");
 
   if (people) {
-    people.textContent = number;
+    people.textContent =
+      number ?? 0;
   }
 }
 
@@ -314,7 +255,8 @@ function addMessage(message) {
     return;
   }
 
-  const messages = $("messages");
+  const messages =
+    $("messages");
 
   if (!messages) {
     return;
@@ -335,7 +277,8 @@ function addMessage(message) {
     document.createElement("div");
 
   bubble.className = "bubble";
-  bubble.textContent = message.text;
+  bubble.textContent =
+    message.text;
 
   const meta =
     document.createElement("div");
@@ -369,14 +312,9 @@ function addMessage(message) {
     messages.scrollHeight;
 }
 
-/*
- * =========================================================
- * SYSTEM MESSAGE
- * =========================================================
- */
-
 function addSystem(text) {
-  const messages = $("messages");
+  const messages =
+    $("messages");
 
   if (!messages) {
     return;
@@ -385,13 +323,51 @@ function addSystem(text) {
   const element =
     document.createElement("div");
 
-  element.className = "system";
-  element.textContent = text;
+  element.className =
+    "system";
 
-  messages.appendChild(element);
+  element.textContent =
+    text;
+
+  messages.appendChild(
+    element
+  );
 
   messages.scrollTop =
     messages.scrollHeight;
+}
+
+/*
+ * =========================================================
+ * ACTIVE ROOM
+ * =========================================================
+ */
+
+function getActiveRoom() {
+  if (
+    currentCode &&
+    currentName
+  ) {
+    return {
+      code: currentCode,
+      name: currentName,
+      type: "chat"
+    };
+  }
+
+  if (
+    pendingCreated &&
+    pendingCreated.code &&
+    pendingCreated.name
+  ) {
+    return {
+      code: pendingCreated.code,
+      name: pendingCreated.name,
+      type: "created"
+    };
+  }
+
+  return null;
 }
 
 /*
@@ -400,14 +376,22 @@ function addSystem(text) {
  * =========================================================
  */
 
-function applyJoinResult(room, result) {
+function applyJoinResult(
+  room,
+  result
+) {
   updatePeople(
     result.participants || 0
   );
 
-  if (room.type === "chat") {
-    const chatCode = $("chatCode");
-    const messages = $("messages");
+  if (
+    room.type === "chat"
+  ) {
+    const chatCode =
+      $("chatCode");
+
+    const messages =
+      $("messages");
 
     if (chatCode) {
       chatCode.textContent =
@@ -422,19 +406,20 @@ function applyJoinResult(room, result) {
       .forEach(addMessage);
   }
 
-  if (room.type === "created") {
+  if (
+    room.type === "created"
+  ) {
     const waitStatus =
       $("waitStatus");
 
-    if (waitStatus) {
-      if (result.participants > 1) {
-        waitStatus.textContent =
-          "🟢 Someone joined — you're connected!";
-      } else {
-        waitStatus.textContent =
-          "🟡 Waiting for someone to join...";
-      }
+    if (!waitStatus) {
+      return;
     }
+
+    waitStatus.textContent =
+      result.participants > 1
+        ? "🟢 Someone joined — you're connected!"
+        : "🟡 Waiting for someone to join...";
   }
 }
 
@@ -444,7 +429,9 @@ function applyJoinResult(room, result) {
  * =========================================================
  */
 
-function handleRoomUnavailable(error) {
+function handleRoomUnavailable(
+  error
+) {
   clearSession();
 
   currentCode = null;
@@ -452,7 +439,8 @@ function handleRoomUnavailable(error) {
   pendingCreated = null;
   joinedSocketId = null;
 
-  const typing = $("typing");
+  const typing =
+    $("typing");
 
   if (typing) {
     typing.textContent = "";
@@ -485,8 +473,18 @@ function joinSocketRoom(
     return;
   }
 
-  if (joinedSocketId === socket.id) {
-    if (typeof onSuccess === "function") {
+  /*
+   * Jangan join ulang
+   * menggunakan socket.id yang sama.
+   */
+  if (
+    joinedSocketId ===
+    socket.id
+  ) {
+    if (
+      typeof onSuccess ===
+      "function"
+    ) {
       onSuccess();
     }
 
@@ -500,17 +498,20 @@ function joinSocketRoom(
       username: room.name
     },
     (res) => {
-      if (!res || !res.ok) {
+      if (
+        !res ||
+        !res.ok
+      ) {
         const error =
           res?.error ||
           "Failed to join room.";
 
-        const lowerError =
+        const lower =
           error.toLowerCase();
 
         if (
-          lowerError.includes("not found") ||
-          lowerError.includes("expired")
+          lower.includes("not found") ||
+          lower.includes("expired")
         ) {
           handleRoomUnavailable(
             error
@@ -551,7 +552,7 @@ function joinSocketRoom(
 
 /*
  * =========================================================
- * REJOIN ACTIVE ROOM
+ * REJOIN
  * =========================================================
  */
 
@@ -588,27 +589,30 @@ function connectSocket() {
     reconnectionDelayMax: 5000
   });
 
-  socket.on("connect", () => {
-    const connDot =
-      $("connDot");
+  socket.on(
+    "connect",
+    () => {
+      const connDot =
+        $("connDot");
 
-    const connText =
-      $("connText");
+      const connText =
+        $("connText");
 
-    if (connDot) {
-      connDot.style.color =
-        "#65e6a4";
+      if (connDot) {
+        connDot.style.color =
+          "#65e6a4";
+      }
+
+      if (connText) {
+        connText.textContent =
+          "Connected";
+      }
+
+      joinedSocketId = null;
+
+      rejoinActiveRoom();
     }
-
-    if (connText) {
-      connText.textContent =
-        "Connected";
-    }
-
-    joinedSocketId = null;
-
-    rejoinActiveRoom();
-  });
+  );
 
   socket.on(
     "disconnect",
@@ -677,23 +681,24 @@ function connectSocket() {
 
   socket.on(
     "presence",
-    ({ participants }) => {
+    ({
+      participants
+    }) => {
       updatePeople(
         participants
       );
 
-      if (pendingCreated) {
+      if (
+        pendingCreated
+      ) {
         const waitStatus =
           $("waitStatus");
 
         if (waitStatus) {
-          if (participants > 1) {
-            waitStatus.textContent =
-              "🟢 Someone joined — you're connected!";
-          } else {
-            waitStatus.textContent =
-              "🟡 Waiting for someone to join...";
-          }
+          waitStatus.textContent =
+            participants > 1
+              ? "🟢 Someone joined — you're connected!"
+              : "🟡 Waiting for someone to join...";
         }
       }
     }
@@ -727,20 +732,35 @@ function connectSocket() {
  */
 
 async function createRoom() {
-  const name =
-    $("createName")
-      .value
-      .trim();
+  const createName =
+    $("createName");
 
-  $("createError").textContent =
-    "";
+  const createError =
+    $("createError");
+
+  const name =
+    createName
+      ? createName.value.trim()
+      : "";
+
+  if (createError) {
+    createError.textContent = "";
+  }
 
   if (!name) {
-    $("createError").textContent =
-      "Please enter your name.";
+    if (createError) {
+      createError.textContent =
+        "Please enter your name.";
+    }
 
     return;
   }
+
+  /*
+   * Tutup keyboard iPhone
+   * sebelum pindah halaman.
+   */
+  createName?.blur();
 
   try {
     const response =
@@ -761,16 +781,20 @@ async function createRoom() {
       await response.json();
 
     if (!response.ok) {
-      $("createError").textContent =
-        data.error ||
-        "Could not create the room.";
+      if (createError) {
+        createError.textContent =
+          data.error ||
+          "Could not create the room.";
+      }
 
       return;
     }
 
     if (!data.code) {
-      $("createError").textContent =
-        "Could not create the room.";
+      if (createError) {
+        createError.textContent =
+          "Could not create the room.";
+      }
 
       return;
     }
@@ -786,11 +810,21 @@ async function createRoom() {
       name
     };
 
-    $("createdCode").textContent =
-      data.code;
+    const createdCode =
+      $("createdCode");
 
-    $("waitStatus").textContent =
-      "🟡 Waiting for someone to join...";
+    const waitStatus =
+      $("waitStatus");
+
+    if (createdCode) {
+      createdCode.textContent =
+        data.code;
+    }
+
+    if (waitStatus) {
+      waitStatus.textContent =
+        "🟡 Waiting for someone to join...";
+    }
 
     generateRoomQR(
       data.code
@@ -800,7 +834,10 @@ async function createRoom() {
 
     connectSocket();
 
-    if (socket.connected) {
+    if (
+      socket &&
+      socket.connected
+    ) {
       rejoinActiveRoom();
     }
 
@@ -810,8 +847,10 @@ async function createRoom() {
       error
     );
 
-    $("createError").textContent =
-      "Could not create the room.";
+    if (createError) {
+      createError.textContent =
+        "Could not create the room.";
+    }
   }
 }
 
@@ -844,50 +883,24 @@ function enterCreatedChat() {
       currentCode;
   }
 
-  const messages =
-    $("messages");
-
-  if (messages) {
-    messages.innerHTML = "";
-  }
-
   show("chat");
 
-const input = $("messageInput");
+  /*
+   * Jangan join ulang.
+   * Creator sudah join room
+   * ketika room dibuat.
+   */
 
-if (input) {
-  input.focus({
-    preventScroll: true
+  const input =
+    $("messageInput");
+
+  requestAnimationFrame(() => {
+    input?.focus({
+      preventScroll: true
+    });
+
+    updateAppHeight();
   });
-}
-
-  if (
-    socket &&
-    socket.connected
-  ) {
-    socket.emit(
-      "join-room",
-      {
-        code: currentCode,
-        username: currentName
-      },
-      (res) => {
-        if (
-          res &&
-          res.ok
-        ) {
-          applyJoinResult(
-            {
-              code: currentCode,
-              name: currentName,
-              type: "chat"
-            },
-            res
-          );
-        }
-      }
-    );
-  }
 }
 
 /*
@@ -897,33 +910,53 @@ if (input) {
  */
 
 function joinRoom() {
+  const joinName =
+    $("joinName");
+
+  const joinCode =
+    $("joinCode");
+
+  const joinError =
+    $("joinError");
+
   const name =
-    $("joinName")
-      .value
-      .trim();
+    joinName
+      ? joinName.value.trim()
+      : "";
 
   const code =
-    $("joinCode")
-      .value
-      .trim()
-      .toUpperCase();
+    joinCode
+      ? joinCode.value
+          .trim()
+          .toUpperCase()
+      : "";
 
-  $("joinError").textContent =
-    "";
+  if (joinError) {
+    joinError.textContent = "";
+  }
 
   if (!name) {
-    $("joinError").textContent =
-      "Please enter your name.";
+    if (joinError) {
+      joinError.textContent =
+        "Please enter your name.";
+    }
 
     return;
   }
 
-  if (code.length !== 11) {
-    $("joinError").textContent =
-      "Enter a valid XXX-XXX-XXX code.";
+  if (
+    code.length !== 11
+  ) {
+    if (joinError) {
+      joinError.textContent =
+        "Enter a valid XXX-XXX-XXX code.";
+    }
 
     return;
   }
+
+  joinName?.blur();
+  joinCode?.blur();
 
   const room = {
     code,
@@ -938,50 +971,52 @@ function joinRoom() {
 
   connectSocket();
 
-  const successfulJoin = () => {
-    /*
-     * Simpan session setelah server
-     * memastikan room valid.
-     */
-    saveSession();
+  const successfulJoin =
+    () => {
+      saveSession();
 
-    /*
-     * Penting untuk QR/invite:
-     * hapus ?join=... dari URL.
-     */
-    cleanInviteUrl();
+      cleanInviteUrl();
 
-    const chatCode =
-      $("chatCode");
+      const chatCode =
+        $("chatCode");
 
-    if (chatCode) {
-      chatCode.textContent =
-        code;
-    }
+      if (chatCode) {
+        chatCode.textContent =
+          code;
+      }
 
-    show("chat");
+      show("chat");
 
-const input = $("messageInput");
+      const input =
+        $("messageInput");
 
-if (input) {
-  input.focus({
-    preventScroll: true
-  });
-}
-  };
+      requestAnimationFrame(() => {
+        input?.focus({
+          preventScroll: true
+        });
 
-  const failedJoin = (error) => {
-    clearSession();
+        updateAppHeight();
+      });
+    };
 
-    currentCode = null;
-    currentName = null;
-    joinedSocketId = null;
+  const failedJoin =
+    (error) => {
+      clearSession();
 
-    $("joinError").textContent =
-      error;
-  };
+      currentCode = null;
+      currentName = null;
+      joinedSocketId = null;
 
-  if (socket.connected) {
+      if (joinError) {
+        joinError.textContent =
+          error;
+      }
+    };
+
+  if (
+    socket &&
+    socket.connected
+  ) {
     joinSocketRoom(
       room,
       successfulJoin,
@@ -1014,7 +1049,9 @@ if (input) {
         return;
       }
 
-      if (attempts >= 200) {
+      if (
+        attempts >= 200
+      ) {
         clearInterval(
           waitForJoin
         );
@@ -1022,8 +1059,10 @@ if (input) {
         currentCode = null;
         currentName = null;
 
-        $("joinError").textContent =
-          "Connection timeout. Please try again.";
+        if (joinError) {
+          joinError.textContent =
+            "Connection timeout. Please try again.";
+        }
       }
     }, 50);
 }
@@ -1039,6 +1078,10 @@ function sendMessage(event) {
 
   const input =
     $("messageInput");
+
+  if (!input) {
+    return;
+  }
 
   const text =
     input.value.trim();
@@ -1065,7 +1108,10 @@ function sendMessage(event) {
       text
     },
     (res) => {
-      if (!res || !res.ok) {
+      if (
+        !res ||
+        !res.ok
+      ) {
         toast(
           res?.error ||
           "Failed to send message."
@@ -1090,7 +1136,7 @@ function sendMessage(event) {
  * =========================================================
  */
 
-let typingTimer;
+let typingTimer = null;
 
 const messageInput =
   $("messageInput");
@@ -1144,21 +1190,9 @@ function leaveRoom() {
 
   cleanInviteUrl();
 
-  currentCode = null;
-  currentName = null;
-  pendingCreated = null;
-  joinedSocketId = null;
-
   clearTimeout(
     typingTimer
   );
-
-  const typing =
-    $("typing");
-
-  if (typing) {
-    typing.textContent = "";
-  }
 
   if (
     socket &&
@@ -1174,19 +1208,35 @@ function leaveRoom() {
     );
   }
 
+  currentCode = null;
+  currentName = null;
+  pendingCreated = null;
+  joinedSocketId = null;
+
+  const typing =
+    $("typing");
+
+  if (typing) {
+    typing.textContent = "";
+  }
+
   showHome();
 }
 
 /*
  * =========================================================
- * COPY ROOM CODE
+ * COPY CODE
  * =========================================================
  */
 
 async function copyCode() {
   const code =
     $("createdCode")
-      .textContent;
+      ?.textContent;
+
+  if (!code) {
+    return;
+  }
 
   try {
     await navigator.clipboard
@@ -1195,6 +1245,7 @@ async function copyCode() {
     toast(
       "Room code copied."
     );
+
   } catch (error) {
     console.error(
       "Copy failed:",
@@ -1216,7 +1267,11 @@ async function copyCode() {
 async function shareRoom() {
   const code =
     $("createdCode")
-      .textContent;
+      ?.textContent;
+
+  if (!code) {
+    return;
+  }
 
   const url =
     `${location.origin}/?join=${
@@ -1224,7 +1279,9 @@ async function shareRoom() {
     }`;
 
   try {
-    if (navigator.share) {
+    if (
+      navigator.share
+    ) {
       await navigator.share({
         title:
           "Join my CodeConnect room",
@@ -1282,7 +1339,7 @@ function premiumDemo() {
 
 /*
  * =========================================================
- * RESTORE SESSION AFTER REFRESH
+ * RESTORE SESSION
  * =========================================================
  */
 
@@ -1332,11 +1389,6 @@ function restoreSession() {
 
   const restoreFailure =
     (error) => {
-      console.error(
-        "Restore failed:",
-        error
-      );
-
       clearSession();
 
       currentCode = null;
@@ -1351,7 +1403,10 @@ function restoreSession() {
       );
     };
 
-  if (socket.connected) {
+  if (
+    socket &&
+    socket.connected
+  ) {
     joinSocketRoom(
       room,
       restoreSuccess,
@@ -1384,7 +1439,9 @@ function restoreSession() {
         return;
       }
 
-      if (attempts >= 200) {
+      if (
+        attempts >= 200
+      ) {
         clearInterval(
           waitForSocket
         );
@@ -1415,18 +1472,10 @@ window.addEventListener(
     const inviteCode =
       params.get("join");
 
-    /*
-     * Jika ada invite code dan belum punya session,
-     * tampilkan form Join.
-     */
     if (inviteCode) {
       const existingSession =
         loadSession();
 
-      /*
-       * Jika session sudah ada untuk room yang sama,
-       * prioritaskan restore otomatis.
-       */
       if (
         existingSession &&
         existingSession.code ===
@@ -1439,9 +1488,6 @@ window.addEventListener(
         return;
       }
 
-      /*
-       * Invite room baru.
-       */
       clearSession();
 
       currentCode = null;
@@ -1466,32 +1512,36 @@ window.addEventListener(
       return;
     }
 
-    /*
-     * Tidak ada invite URL.
-     * Coba restore session lama.
-     */
     restoreSession();
   }
 );
+
 /*
  * =========================================================
  * PWA SERVICE WORKER
  * =========================================================
  */
 
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", async () => {
-    try {
-      await navigator.serviceWorker.register("/sw.js");
+if (
+  "serviceWorker" in navigator
+) {
+  window.addEventListener(
+    "load",
+    async () => {
+      try {
+        await navigator.serviceWorker
+          .register("/sw.js");
 
-      console.log(
-        "CodeConnect service worker registered."
-      );
-    } catch (error) {
-      console.error(
-        "Service worker registration failed:",
-        error
-      );
+        console.log(
+          "CodeConnect service worker registered."
+        );
+
+      } catch (error) {
+        console.error(
+          "Service worker registration failed:",
+          error
+        );
+      }
     }
-  });
+  );
 }
