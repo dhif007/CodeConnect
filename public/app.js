@@ -6,7 +6,7 @@ let pendingCreated = null;
 
 /*
  * Menyimpan socket.id yang sudah berhasil join.
- * Socket.IO bisa mendapatkan socket.id baru setelah reconnect.
+ * Socket.IO bisa mendapat socket.id baru setelah reconnect.
  */
 let joinedSocketId = null;
 
@@ -27,10 +27,6 @@ const views = [
  * =========================================================
  */
 
-/*
- * Simpan room yang sedang digunakan.
- * Ini memungkinkan user kembali ke room setelah refresh.
- */
 function saveSession() {
   if (!currentCode || !currentName) {
     return;
@@ -47,9 +43,6 @@ function saveSession() {
   );
 }
 
-/*
- * Hapus session ketika user benar-benar Leave.
- */
 function clearSession() {
   sessionStorage.removeItem(
     "codeconnect_code"
@@ -60,9 +53,6 @@ function clearSession() {
   );
 }
 
-/*
- * Ambil session yang tersimpan.
- */
 function loadSession() {
   const code =
     sessionStorage.getItem(
@@ -82,6 +72,37 @@ function loadSession() {
     code,
     name
   };
+}
+
+/*
+ * =========================================================
+ * CLEAN INVITE URL
+ * =========================================================
+ */
+
+/*
+ * Setelah user berhasil masuk lewat:
+ *
+ * ?join=ABC-DEF-GH2
+ *
+ * URL dibersihkan menjadi:
+ *
+ * /
+ *
+ * tanpa refresh.
+ *
+ * Ini mencegah browser menganggap QR/invite
+ * sebagai invite baru setiap kali halaman di-refresh.
+ */
+function cleanInviteUrl() {
+  const cleanUrl =
+    `${location.origin}${location.pathname}`;
+
+  window.history.replaceState(
+    {},
+    document.title,
+    cleanUrl
+  );
 }
 
 /*
@@ -190,9 +211,6 @@ function generateRoomQR(code) {
  */
 
 function getActiveRoom() {
-  /*
-   * User sudah berada di room/chat.
-   */
   if (currentCode && currentName) {
     return {
       code: currentCode,
@@ -201,10 +219,6 @@ function getActiveRoom() {
     };
   }
 
-  /*
-   * Creator masih berada di halaman
-   * ROOM READY.
-   */
   if (
     pendingCreated &&
     pendingCreated.code &&
@@ -339,10 +353,6 @@ function applyJoinResult(room, result) {
     result.participants || 0
   );
 
-  /*
-   * Kalau user berada di chat,
-   * sinkronkan history dari PostgreSQL.
-   */
   if (room.type === "chat") {
     const chatCode = $("chatCode");
     const messages = $("messages");
@@ -360,9 +370,6 @@ function applyJoinResult(room, result) {
       .forEach(addMessage);
   }
 
-  /*
-   * Creator masih berada di ROOM READY.
-   */
   if (room.type === "created") {
     const waitStatus =
       $("waitStatus");
@@ -381,19 +388,11 @@ function applyJoinResult(room, result) {
 
 /*
  * =========================================================
- * HANDLE INVALID / EXPIRED ROOM
+ * ROOM UNAVAILABLE
  * =========================================================
  */
 
 function handleRoomUnavailable(error) {
-  const message =
-    error ||
-    "Room not found or expired.";
-
-  /*
-   * Session lama tidak boleh terus
-   * mencoba masuk ke room invalid.
-   */
   clearSession();
 
   currentCode = null;
@@ -409,7 +408,10 @@ function handleRoomUnavailable(error) {
 
   showHome();
 
-  toast(message);
+  toast(
+    error ||
+    "Room not found or expired."
+  );
 }
 
 /*
@@ -431,10 +433,6 @@ function joinSocketRoom(
     return;
   }
 
-  /*
-   * Socket yang sama tidak perlu join
-   * room yang sama berkali-kali.
-   */
   if (joinedSocketId === socket.id) {
     if (typeof onSuccess === "function") {
       onSuccess();
@@ -455,18 +453,21 @@ function joinSocketRoom(
           res?.error ||
           "Failed to join room.";
 
+        const lowerError =
+          error.toLowerCase();
+
         if (
-          error
-            .toLowerCase()
-            .includes("not found") ||
-          error
-            .toLowerCase()
-            .includes("expired")
+          lowerError.includes("not found") ||
+          lowerError.includes("expired")
         ) {
           handleRoomUnavailable(
             error
           );
-        } else if (
+
+          return;
+        }
+
+        if (
           typeof onFailure ===
           "function"
         ) {
@@ -520,9 +521,6 @@ function rejoinActiveRoom() {
  */
 
 function connectSocket() {
-  /*
-   * Socket hanya dibuat satu kali.
-   */
   if (socket) {
     if (!socket.connected) {
       socket.connect();
@@ -538,9 +536,6 @@ function connectSocket() {
     reconnectionDelayMax: 5000
   });
 
-  /*
-   * CONNECT / RECONNECT
-   */
   socket.on("connect", () => {
     const connDot =
       $("connDot");
@@ -558,17 +553,11 @@ function connectSocket() {
         "Connected";
     }
 
-    /*
-     * socket.id dapat berubah setelah reconnect.
-     */
     joinedSocketId = null;
 
     rejoinActiveRoom();
   });
 
-  /*
-   * DISCONNECTED
-   */
   socket.on(
     "disconnect",
     () => {
@@ -592,9 +581,6 @@ function connectSocket() {
     }
   );
 
-  /*
-   * RECONNECT ATTEMPT
-   */
   socket.io.on(
     "reconnect_attempt",
     () => {
@@ -608,9 +594,6 @@ function connectSocket() {
     }
   );
 
-  /*
-   * RECONNECT ERROR
-   */
   socket.io.on(
     "reconnect_error",
     () => {
@@ -624,17 +607,11 @@ function connectSocket() {
     }
   );
 
-  /*
-   * MESSAGE
-   */
   socket.on(
     "message",
     addMessage
   );
 
-  /*
-   * SYSTEM MESSAGE
-   */
   socket.on(
     "system-message",
     (message) => {
@@ -646,9 +623,6 @@ function connectSocket() {
     }
   );
 
-  /*
-   * PARTICIPANT PRESENCE
-   */
   socket.on(
     "presence",
     ({ participants }) => {
@@ -673,9 +647,6 @@ function connectSocket() {
     }
   );
 
-  /*
-   * TYPING
-   */
   socket.on(
     "typing",
     ({
@@ -752,9 +723,6 @@ async function createRoom() {
       return;
     }
 
-    /*
-     * Bersihkan session room sebelumnya.
-     */
     clearSession();
 
     currentCode = null;
@@ -780,10 +748,6 @@ async function createRoom() {
 
     connectSocket();
 
-    /*
-     * Kalau socket memang sudah connected,
-     * langsung join room baru.
-     */
     if (socket.connected) {
       rejoinActiveRoom();
     }
@@ -816,11 +780,9 @@ function enterCreatedChat() {
   currentName =
     pendingCreated.name;
 
-  /*
-   * Sekarang creator resmi berada di chat.
-   * Simpan session untuk refresh.
-   */
   saveSession();
+
+  cleanInviteUrl();
 
   const chatCode =
     $("chatCode");
@@ -839,11 +801,6 @@ function enterCreatedChat() {
 
   show("chat");
 
-  /*
-   * Ambil history lagi supaya pesan yang
-   * masuk saat creator masih di ROOM READY
-   * juga bisa ditampilkan.
-   */
   if (
     socket &&
     socket.connected
@@ -901,9 +858,6 @@ function joinRoom() {
     return;
   }
 
-  /*
-   * Format XXX-XXX-XXX = 11 karakter.
-   */
   if (code.length !== 11) {
     $("joinError").textContent =
       "Enter a valid XXX-XXX-XXX code.";
@@ -911,10 +865,6 @@ function joinRoom() {
     return;
   }
 
-  /*
-   * Jangan simpan session sebelum server
-   * memastikan room benar-benar valid.
-   */
   const room = {
     code,
     name,
@@ -930,20 +880,29 @@ function joinRoom() {
 
   const successfulJoin = () => {
     /*
-     * Baru simpan setelah server menerima join.
+     * Simpan session setelah server
+     * memastikan room valid.
      */
     saveSession();
 
-    $("chatCode").textContent =
-      code;
+    /*
+     * Penting untuk QR/invite:
+     * hapus ?join=... dari URL.
+     */
+    cleanInviteUrl();
+
+    const chatCode =
+      $("chatCode");
+
+    if (chatCode) {
+      chatCode.textContent =
+        code;
+    }
 
     show("chat");
   };
 
   const failedJoin = (error) => {
-    /*
-     * Join gagal, jangan simpan room invalid.
-     */
     clearSession();
 
     currentCode = null;
@@ -964,12 +923,6 @@ function joinRoom() {
     return;
   }
 
-  /*
-   * Jika socket masih menghubungkan,
-   * event connect akan melakukan join.
-   *
-   * Kita tunggu sampai join berhasil.
-   */
   let attempts = 0;
 
   const waitForJoin =
@@ -1119,11 +1072,9 @@ if (messageInput) {
  */
 
 function leaveRoom() {
-  /*
-   * Hapus session terlebih dahulu supaya
-   * reconnect tidak otomatis join lagi.
-   */
   clearSession();
+
+  cleanInviteUrl();
 
   currentCode = null;
   currentName = null;
@@ -1229,10 +1180,6 @@ async function shareRoom() {
     );
 
   } catch (error) {
-    /*
-     * AbortError biasanya berarti user
-     * membatalkan native Share.
-     */
     if (
       error?.name !==
       "AbortError"
@@ -1306,6 +1253,8 @@ function restoreSession() {
 
   const restoreSuccess =
     () => {
+      cleanInviteUrl();
+
       show("chat");
 
       toast(
@@ -1334,9 +1283,6 @@ function restoreSession() {
       );
     };
 
-  /*
-   * Socket mungkin sudah connected.
-   */
   if (socket.connected) {
     joinSocketRoom(
       room,
@@ -1347,9 +1293,6 @@ function restoreSession() {
     return;
   }
 
-  /*
-   * Tunggu socket terhubung.
-   */
   let attempts = 0;
 
   const waitForSocket =
@@ -1373,9 +1316,6 @@ function restoreSession() {
         return;
       }
 
-      /*
-       * Sekitar 10 detik.
-       */
       if (attempts >= 200) {
         clearInterval(
           waitForSocket
@@ -1406,15 +1346,31 @@ window.addEventListener(
       params.get("join");
 
     /*
-     * Invite link mempunyai prioritas.
-     *
-     * Contoh:
-     * ?join=ABC-DEF-GHJ
+     * Jika ada invite code dan belum punya session,
+     * tampilkan form Join.
      */
     if (inviteCode) {
+      const existingSession =
+        loadSession();
+
       /*
-       * Jangan otomatis masuk ke room lama
-       * ketika user membuka invite baru.
+       * Jika session sudah ada untuk room yang sama,
+       * prioritaskan restore otomatis.
+       */
+      if (
+        existingSession &&
+        existingSession.code ===
+          inviteCode.toUpperCase()
+      ) {
+        cleanInviteUrl();
+
+        restoreSession();
+
+        return;
+      }
+
+      /*
+       * Invite room baru.
        */
       clearSession();
 
@@ -1442,7 +1398,7 @@ window.addEventListener(
 
     /*
      * Tidak ada invite URL.
-     * Coba restore room dari session.
+     * Coba restore session lama.
      */
     restoreSession();
   }
