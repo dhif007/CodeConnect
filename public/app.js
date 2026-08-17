@@ -123,6 +123,31 @@ function show(id) {
     }
   });
 
+  document.body.classList.toggle(
+    "chat-mode",
+    id === "chat"
+  );
+
+  window.scrollTo({
+    top: 0,
+    left: 0,
+    behavior: "instant"
+  });
+
+  /*
+   * Paksa viewport kembali menyesuaikan layar
+   * setelah pindah view di iPhone.
+   */
+  requestAnimationFrame(() => {
+    window.scrollTo(0, 0);
+
+    document.documentElement.style
+      .setProperty(
+        "--app-height",
+        `${window.innerHeight}px`
+      );
+  });
+}
   /*
    * Saat berada di chat, sembunyikan navbar utama.
    * Chat mempunyai header sendiri.
