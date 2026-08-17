@@ -989,7 +989,140 @@ app.post(
     }
   }
 );
+/*
+ * =========================================================
+ * SEND PUSH TO ROOM
+ * =========================================================
+ */
 
+async function sendPushToRoom(
+  roomCode,
+  senderUsername,
+  messageText
+) {
+  try {
+    const result =
+      await pool.query(
+        `
+        SELECT
+          endpoint,
+          p256dh,
+          auth,
+          username
+
+        FROM push_subscriptions
+
+        WHERE room_code = $1
+        `,
+        [roomCode]
+      );
+
+    if (
+      result.rowCount === 0
+    ) {
+      return;
+    }
+
+    const payload =
+      JSON.stringify({
+        title:
+          `${senderUsername} · CodeConnect`,
+
+        body:
+          messageText.length > 120
+            ? `${messageText.slice(0, 117)}...`
+            : messageText,
+
+        roomCode,
+
+        url:
+          `/?join=${encodeURIComponent(
+            roomCode
+          )}`,
+
+        tag:
+          `codeconnect-${roomCode}`
+      });
+
+    const jobs =
+      result.rows.map(
+        async (row) => {
+
+          /*
+           * Jangan kirim notifikasi
+           * kembali ke username pengirim.
+           */
+          if (
+            row.username ===
+            senderUsername
+          ) {
+            return;
+          }
+
+          const subscription = {
+            endpoint:
+              row.endpoint,
+
+            keys: {
+              p256dh:
+                row.p256dh,
+
+              auth:
+                row.auth
+            }
+          };
+
+          try {
+            await webpush.sendNotification(
+              subscription,
+              payload,
+              {
+                TTL: 60 * 60,
+                urgency: "high"
+              }
+            );
+
+          } catch (error) {
+            console.error(
+              "Push send error:",
+              error.statusCode ||
+              error.message
+            );
+
+            /*
+             * 404 / 410 biasanya berarti
+             * subscription sudah tidak valid.
+             * Hapus supaya database tetap bersih.
+             */
+            if (
+              error.statusCode === 404 ||
+              error.statusCode === 410
+            ) {
+              await pool.query(
+                `
+                DELETE FROM push_subscriptions
+                WHERE endpoint = $1
+                `,
+                [
+                  row.endpoint
+                ]
+              );
+            }
+          }
+        }
+      );
+
+    await Promise.allSettled(
+      jobs
+    );
+
+  } catch (error) {
+    console.error(
+      "Push room error:",
+      error
+    );
+  }
+}
 /*
  * =========================================================
  * SOCKET.IO CONFIGURATION
@@ -1523,15 +1656,27 @@ io.on(
            */
 
           io
-            .to(code)
-            .emit(
-              "message",
-              message
-            );
+  .to(code)
+  .emit(
+    "message",
+    message
+  );
 
-          /*
-           * Maksimal 200 pesan
-           * tersimpan per room.
+sendPushToRoom(
+  code,
+  username,
+  clean
+).catch((error) => {
+  console.error(
+    "Push notification error:",
+    error
+  );
+});
+
+/*
+ * Maksimal 200 pesan
+ * tersimpan per room.
+ */an per room.
            */
 
           await pool.query(
