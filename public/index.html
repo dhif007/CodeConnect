@@ -29,7 +29,7 @@
           <button class="primary" onclick="showCreate()">Create Room <span>→</span></button>
           <button class="secondary" onclick="showJoin()">Join with Code</button>
         </div>
-        <div class="trust"><span>●</span> No phone number required &nbsp; • &nbsp; 2-person free rooms</div>
+        <div class="trust"><span>●</span> No phone number required &nbsp; • &nbsp; Up to 50 users per room</div>
       </div>
       <div class="steps">
         <div><b>01</b><h3>Create</h3><p>Generate a private room and receive a unique code.</p></div>
@@ -95,7 +95,7 @@
             <button class="back" onclick="leaveRoom()">← Leave</button>
             <strong>CodeConnect</strong>
           </div>
-          <div class="room-meta"><span id="connDot">●</span><span id="connText">Connected</span> · <b id="chatCode">---</b> · <span id="people">1</span>/2</div>
+          <div class="room-meta"><span id="connDot">●</span><span id="connText">Connected</span> · <b id="chatCode">---</b> · <span id="people">1</span>/50</div>
         </div>
         <div id="messages" class="messages"></div>
         <div id="typing" class="typing"></div>
@@ -113,8 +113,8 @@
         <p class="muted">Premium features are designed for longer rooms, groups, and richer communication.</p>
       </div>
       <div class="plans">
-        <article class="plan"><div class="plan-name">FREE</div><h3>Rp0</h3><p class="muted">For trying CodeConnect.</p><ul><li>✓ 2 users</li><li>✓ 24-hour room</li><li>✓ Real-time text chat</li><li>✓ QR code & sharing</li><li>✓ Basic reactions</li></ul><button class="secondary full" onclick="showCreate()">Create Free Room</button></article>
-        <article class="plan featured"><div class="popular">MOST POPULAR</div><div class="plan-name">PREMIUM</div><h3>Rp15.000 <small>/ month</small></h3><p class="muted">For regular private rooms.</p><ul><li>✓ Up to 20 users</li><li>✓ 30-day rooms</li><li>✓ Chat history</li><li>✓ File sharing</li><li>✓ Voice messages</li><li>✓ Room password</li><li>✓ Custom code & theme</li><li>✓ No ads</li></ul><button class="primary full" onclick="premiumDemo()">Upgrade to Premium</button></article>
+        <article class="plan"><div class="plan-name">FREE</div><h3>Rp0</h3><p class="muted">For trying CodeConnect.</p><ul><li>✓ Up to 50 users</li><li>✓ 24-hour room</li><li>✓ Real-time text chat</li><li>✓ QR code & sharing</li><li>✓ Basic reactions</li></ul><button class="secondary full" onclick="showCreate()">Create Free Room</button></article>
+        <article class="plan featured"><div class="popular">MOST POPULAR</div><div class="plan-name">PREMIUM</div><h3>Rp15.000 <small>/ month</small></h3><p class="muted">For regular private rooms.</p><ul><li>✓ Larger group rooms</li><li>✓ 30-day rooms</li><li>✓ Chat history</li><li>✓ File sharing</li><li>✓ Voice messages</li><li>✓ Room password</li><li>✓ Custom code & theme</li><li>✓ No ads</li></ul><button class="primary full" onclick="premiumDemo()">Upgrade to Premium</button></article>
         <article class="plan"><div class="plan-name">YEARLY</div><h3>Rp99.000 <small>/ year</small></h3><p class="muted">Best value for long-term use.</p><ul><li>✓ Everything in Premium</li><li>✓ 365-day access</li><li>✓ Priority features</li><li>✓ No ads</li></ul><button class="secondary full" onclick="premiumDemo()">Choose Yearly</button></article>
       </div>
       <p id="premiumNote" class="note"></p>
