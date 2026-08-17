@@ -26,20 +26,52 @@ function formatCode(el){
 async function createRoom(){
   const name=$("createName").value.trim();
   $("createError").textContent="";
-  if(!name){$("createError").textContent="Please enter your name.";return}
+
+  if(!name){
+    $("createError").textContent="Please enter your name.";
+    return;
+  }
+
   try{
-    const r=await fetch("/api/rooms",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({})});
+    const r=await fetch("/api/rooms",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({})
+    });
+
     const data=await r.json();
+
+    if(!r.ok){
+      $("createError").textContent=data.error || "Could not create the room.";
+      return;
+    }
+
+    if(!data.code){
+      $("createError").textContent="Could not create the room.";
+      return;
+    }
+
     pendingCreated={code:data.code,name};
+
     $("createdCode").textContent=data.code;
     $("waitStatus").textContent="🟡 Waiting for someone to join...";
+
     show("created");
+
     connectSocket();
+
     socket.emit("join-room",{code:data.code,username:name},res=>{
-      if(!res.ok) toast(res.error);
-      else updatePeople(res.participants);
+      if(!res.ok){
+        toast(res.error);
+        return;
+      }
+
+      updatePeople(res.participants);
     });
-  }catch(e){$("createError").textContent="Could not create the room."}
+
+  }catch(e){
+    $("createError").textContent="Could not create the room.";
+  }
 }
 function connectSocket(){
   if(socket) return;
