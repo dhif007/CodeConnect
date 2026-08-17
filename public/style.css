@@ -1091,3 +1091,121 @@ button {
     margin-bottom: 20px;
   }
 }
+/* =========================================================
+   FIX MOBILE CHAT HEADER + IPHONE VIEWPORT
+   ========================================================= */
+
+:root {
+  --app-height: 100dvh;
+}
+
+body.chat-mode .nav {
+  display: none !important;
+}
+
+body.chat-mode #chat {
+  display: block;
+  min-height: var(--app-height);
+}
+
+body.chat-mode .chat-shell {
+  width: 100%;
+  height: var(--app-height);
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.chat-head {
+  flex-shrink: 0;
+}
+
+.chat-head-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.chat-leave {
+  background: none;
+  color: var(--muted);
+  padding: 8px 0;
+  margin: 0;
+  flex-shrink: 0;
+  font-size: 13px;
+}
+
+.chat-leave:hover {
+  color: var(--text);
+}
+
+.room-meta {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.panel input,
+.composer input {
+  font-size: 16px !important;
+}
+
+@media (max-width: 600px) {
+  body.chat-mode .chat-shell {
+    height: var(--app-height);
+  }
+
+  body.chat-mode .chat-head {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+
+    min-height:
+      calc(
+        58px +
+        env(safe-area-inset-top)
+      );
+
+    padding:
+      calc(
+        10px +
+        env(safe-area-inset-top)
+      )
+      12px
+      10px;
+
+    background: #0d1119;
+  }
+
+  .chat-head-left {
+    gap: 8px;
+  }
+
+  .chat-head-left strong {
+    font-size: 14px;
+  }
+
+  .chat-leave {
+    font-size: 12px;
+  }
+
+  .room-meta {
+    max-width: 48%;
+    font-size: 9px;
+  }
+
+  .composer {
+    padding-bottom:
+      calc(
+        10px +
+        env(safe-area-inset-bottom)
+      );
+  }
+
+  .panel input,
+  .composer input {
+    font-size: 16px !important;
+  }
+}
