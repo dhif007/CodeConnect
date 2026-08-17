@@ -46,40 +46,46 @@ window.addEventListener(
  * =========================================================
  */
 
+/*
+ * =========================================================
+ * PERSISTENT ROOM SESSION
+ * =========================================================
+ */
+
 function saveSession() {
   if (!currentCode || !currentName) {
     return;
   }
 
-  sessionStorage.setItem(
+  localStorage.setItem(
     "codeconnect_code",
     currentCode
   );
 
-  sessionStorage.setItem(
+  localStorage.setItem(
     "codeconnect_name",
     currentName
   );
 }
 
 function clearSession() {
-  sessionStorage.removeItem(
+  localStorage.removeItem(
     "codeconnect_code"
   );
 
-  sessionStorage.removeItem(
+  localStorage.removeItem(
     "codeconnect_name"
   );
 }
 
 function loadSession() {
   const code =
-    sessionStorage.getItem(
+    localStorage.getItem(
       "codeconnect_code"
     );
 
   const name =
-    sessionStorage.getItem(
+    localStorage.getItem(
       "codeconnect_name"
     );
 
@@ -1463,6 +1469,7 @@ window.addEventListener(
   "load",
   () => {
     updateAppHeight();
+    migrateOldSession();
     updateNotificationButton();
 
     const params =
