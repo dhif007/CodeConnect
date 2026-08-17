@@ -2,12 +2,11 @@ let socket = null;
 
 let currentCode = null;
 let currentName = null;
-
 let pendingCreated = null;
 
 /*
  * Menyimpan socket.id yang sudah berhasil join.
- * Socket.IO mendapatkan socket.id baru setelah reconnect.
+ * Socket.IO bisa mendapatkan socket.id baru setelah reconnect.
  */
 let joinedSocketId = null;
 
@@ -24,13 +23,83 @@ const views = [
 
 /*
  * =========================================================
+ * SESSION STORAGE
+ * =========================================================
+ */
+
+/*
+ * Simpan room yang sedang digunakan.
+ * Ini memungkinkan user kembali ke room setelah refresh.
+ */
+function saveSession() {
+  if (!currentCode || !currentName) {
+    return;
+  }
+
+  sessionStorage.setItem(
+    "codeconnect_code",
+    currentCode
+  );
+
+  sessionStorage.setItem(
+    "codeconnect_name",
+    currentName
+  );
+}
+
+/*
+ * Hapus session ketika user benar-benar Leave.
+ */
+function clearSession() {
+  sessionStorage.removeItem(
+    "codeconnect_code"
+  );
+
+  sessionStorage.removeItem(
+    "codeconnect_name"
+  );
+}
+
+/*
+ * Ambil session yang tersimpan.
+ */
+function loadSession() {
+  const code =
+    sessionStorage.getItem(
+      "codeconnect_code"
+    );
+
+  const name =
+    sessionStorage.getItem(
+      "codeconnect_name"
+    );
+
+  if (!code || !name) {
+    return null;
+  }
+
+  return {
+    code,
+    name
+  };
+}
+
+/*
+ * =========================================================
  * VIEW
  * =========================================================
  */
 
 function show(id) {
   views.forEach((view) => {
-    $(view).classList.toggle("active", view === id);
+    const element = $(view);
+
+    if (element) {
+      element.classList.toggle(
+        "active",
+        view === id
+      );
+    }
   });
 
   window.scrollTo(0, 0);
@@ -61,6 +130,10 @@ function showPricing() {
 function toast(text) {
   const element = $("toast");
 
+  if (!element) {
+    return;
+  }
+
   element.textContent = text;
   element.classList.add("show");
 
@@ -78,7 +151,7 @@ function toast(text) {
  */
 
 function formatCode(el) {
-  let value = el.value
+  let value = String(el.value || "")
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "")
     .slice(0, 9);
@@ -97,7 +170,9 @@ function generateRoomQR(code) {
   const img = $("qrImage");
 
   if (!img) {
-    console.error("QR image element not found.");
+    console.error(
+      "QR image element not found."
+    );
     return;
   }
 
@@ -110,13 +185,13 @@ function generateRoomQR(code) {
 
 /*
  * =========================================================
- * GET ACTIVE ROOM
+ * ACTIVE ROOM
  * =========================================================
  */
 
 function getActiveRoom() {
   /*
-   * User sudah berada di halaman chat.
+   * User sudah berada di room/chat.
    */
   if (currentCode && currentName) {
     return {
@@ -127,7 +202,8 @@ function getActiveRoom() {
   }
 
   /*
-   * Creator masih berada di halaman ROOM READY.
+   * Creator masih berada di halaman
+   * ROOM READY.
    */
   if (
     pendingCreated &&
@@ -146,35 +222,194 @@ function getActiveRoom() {
 
 /*
  * =========================================================
+ * PARTICIPANTS
+ * =========================================================
+ */
+
+function updatePeople(number) {
+  const people = $("people");
+
+  if (people) {
+    people.textContent = number;
+  }
+}
+
+/*
+ * =========================================================
+ * MESSAGE DISPLAY
+ * =========================================================
+ */
+
+function addMessage(message) {
+  if (
+    !message ||
+    typeof message.text !== "string"
+  ) {
+    return;
+  }
+
+  const messages = $("messages");
+
+  if (!messages) {
+    return;
+  }
+
+  const wrap =
+    document.createElement("div");
+
+  wrap.className =
+    "msg" +
+    (
+      message.username === currentName
+        ? " mine"
+        : ""
+    );
+
+  const bubble =
+    document.createElement("div");
+
+  bubble.className = "bubble";
+  bubble.textContent = message.text;
+
+  const meta =
+    document.createElement("div");
+
+  meta.className = "meta";
+
+  const timestamp =
+    Number(message.timestamp) ||
+    Date.now();
+
+  meta.textContent =
+    `${message.username || "Guest"} · ${
+      new Date(timestamp)
+        .toLocaleTimeString(
+          [],
+          {
+            hour: "2-digit",
+            minute: "2-digit"
+          }
+        )
+    }`;
+
+  wrap.append(
+    bubble,
+    meta
+  );
+
+  messages.appendChild(wrap);
+
+  messages.scrollTop =
+    messages.scrollHeight;
+}
+
+/*
+ * =========================================================
+ * SYSTEM MESSAGE
+ * =========================================================
+ */
+
+function addSystem(text) {
+  const messages = $("messages");
+
+  if (!messages) {
+    return;
+  }
+
+  const element =
+    document.createElement("div");
+
+  element.className = "system";
+  element.textContent = text;
+
+  messages.appendChild(element);
+
+  messages.scrollTop =
+    messages.scrollHeight;
+}
+
+/*
+ * =========================================================
  * APPLY JOIN RESULT
  * =========================================================
  */
 
 function applyJoinResult(room, result) {
-  updatePeople(result.participants);
+  updatePeople(
+    result.participants || 0
+  );
 
   /*
-   * Jika user sedang berada di chat,
-   * sinkronkan kembali histori dari server.
+   * Kalau user berada di chat,
+   * sinkronkan history dari PostgreSQL.
    */
   if (room.type === "chat") {
-    $("chatCode").textContent = room.code;
+    const chatCode = $("chatCode");
+    const messages = $("messages");
 
-    $("messages").innerHTML = "";
+    if (chatCode) {
+      chatCode.textContent =
+        room.code;
+    }
 
-    (result.messages || []).forEach(addMessage);
+    if (messages) {
+      messages.innerHTML = "";
+    }
+
+    (result.messages || [])
+      .forEach(addMessage);
   }
 
   /*
-   * Creator masih menunggu orang masuk.
+   * Creator masih berada di ROOM READY.
    */
-  if (
-    room.type === "created" &&
-    result.participants > 1
-  ) {
-    $("waitStatus").textContent =
-      "🟢 Someone joined — you're connected!";
+  if (room.type === "created") {
+    const waitStatus =
+      $("waitStatus");
+
+    if (waitStatus) {
+      if (result.participants > 1) {
+        waitStatus.textContent =
+          "🟢 Someone joined — you're connected!";
+      } else {
+        waitStatus.textContent =
+          "🟡 Waiting for someone to join...";
+      }
+    }
   }
+}
+
+/*
+ * =========================================================
+ * HANDLE INVALID / EXPIRED ROOM
+ * =========================================================
+ */
+
+function handleRoomUnavailable(error) {
+  const message =
+    error ||
+    "Room not found or expired.";
+
+  /*
+   * Session lama tidak boleh terus
+   * mencoba masuk ke room invalid.
+   */
+  clearSession();
+
+  currentCode = null;
+  currentName = null;
+  pendingCreated = null;
+  joinedSocketId = null;
+
+  const typing = $("typing");
+
+  if (typing) {
+    typing.textContent = "";
+  }
+
+  showHome();
+
+  toast(message);
 }
 
 /*
@@ -183,15 +418,28 @@ function applyJoinResult(room, result) {
  * =========================================================
  */
 
-function joinSocketRoom(room) {
-  if (!socket || !socket.connected) {
+function joinSocketRoom(
+  room,
+  onSuccess = null,
+  onFailure = null
+) {
+  if (
+    !socket ||
+    !socket.connected ||
+    !room
+  ) {
     return;
   }
 
   /*
-   * Jangan join dua kali menggunakan socket.id yang sama.
+   * Socket yang sama tidak perlu join
+   * room yang sama berkali-kali.
    */
   if (joinedSocketId === socket.id) {
+    if (typeof onSuccess === "function") {
+      onSuccess();
+    }
+
     return;
   }
 
@@ -204,14 +452,25 @@ function joinSocketRoom(room) {
     (res) => {
       if (!res || !res.ok) {
         const error =
-          res?.error || "Failed to join room.";
+          res?.error ||
+          "Failed to join room.";
 
-        /*
-         * Kalau join normal dari halaman Join,
-         * tampilkan error di form.
-         */
-        if (room.type === "chat") {
-          $("joinError").textContent = error;
+        if (
+          error
+            .toLowerCase()
+            .includes("not found") ||
+          error
+            .toLowerCase()
+            .includes("expired")
+        ) {
+          handleRoomUnavailable(
+            error
+          );
+        } else if (
+          typeof onFailure ===
+          "function"
+        ) {
+          onFailure(error);
         } else {
           toast(error);
         }
@@ -219,24 +478,33 @@ function joinSocketRoom(room) {
         return;
       }
 
-      /*
-       * Tandai socket sekarang sudah join.
-       */
-      joinedSocketId = socket.id;
+      joinedSocketId =
+        socket.id;
 
-      applyJoinResult(room, res);
+      applyJoinResult(
+        room,
+        res
+      );
+
+      if (
+        typeof onSuccess ===
+        "function"
+      ) {
+        onSuccess(res);
+      }
     }
   );
 }
 
 /*
  * =========================================================
- * REJOIN AFTER RECONNECT
+ * REJOIN ACTIVE ROOM
  * =========================================================
  */
 
 function rejoinActiveRoom() {
-  const room = getActiveRoom();
+  const room =
+    getActiveRoom();
 
   if (!room) {
     return;
@@ -253,8 +521,7 @@ function rejoinActiveRoom() {
 
 function connectSocket() {
   /*
-   * Socket cukup dibuat satu kali.
-   * Socket.IO sendiri akan menangani reconnect.
+   * Socket hanya dibuat satu kali.
    */
   if (socket) {
     if (!socket.connected) {
@@ -264,18 +531,35 @@ function connectSocket() {
     return;
   }
 
-  socket = io();
+  socket = io({
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000
+  });
 
   /*
    * CONNECT / RECONNECT
    */
   socket.on("connect", () => {
-    $("connDot").style.color = "#65e6a4";
-    $("connText").textContent = "Connected";
+    const connDot =
+      $("connDot");
+
+    const connText =
+      $("connText");
+
+    if (connDot) {
+      connDot.style.color =
+        "#65e6a4";
+    }
+
+    if (connText) {
+      connText.textContent =
+        "Connected";
+    }
 
     /*
-     * socket.id berubah setelah reconnect.
-     * Karena itu room harus di-join kembali.
+     * socket.id dapat berubah setelah reconnect.
      */
     joinedSocketId = null;
 
@@ -283,56 +567,108 @@ function connectSocket() {
   });
 
   /*
-   * CONNECTION LOST
+   * DISCONNECTED
    */
-  socket.on("disconnect", () => {
-    $("connDot").style.color = "#ff6b7a";
-    $("connText").textContent = "Reconnecting...";
+  socket.on(
+    "disconnect",
+    () => {
+      const connDot =
+        $("connDot");
 
-    joinedSocketId = null;
-  });
+      const connText =
+        $("connText");
+
+      if (connDot) {
+        connDot.style.color =
+          "#ff6b7a";
+      }
+
+      if (connText) {
+        connText.textContent =
+          "Reconnecting...";
+      }
+
+      joinedSocketId = null;
+    }
+  );
 
   /*
-   * Reconnect sedang dicoba.
+   * RECONNECT ATTEMPT
    */
-  socket.io.on("reconnect_attempt", () => {
-    $("connText").textContent = "Reconnecting...";
-  });
+  socket.io.on(
+    "reconnect_attempt",
+    () => {
+      const connText =
+        $("connText");
+
+      if (connText) {
+        connText.textContent =
+          "Reconnecting...";
+      }
+    }
+  );
 
   /*
-   * Reconnect gagal.
+   * RECONNECT ERROR
    */
-  socket.io.on("reconnect_error", () => {
-    $("connText").textContent =
-      "Connection problem";
-  });
+  socket.io.on(
+    "reconnect_error",
+    () => {
+      const connText =
+        $("connText");
+
+      if (connText) {
+        connText.textContent =
+          "Connection problem";
+      }
+    }
+  );
 
   /*
    * MESSAGE
    */
-  socket.on("message", addMessage);
+  socket.on(
+    "message",
+    addMessage
+  );
 
   /*
    * SYSTEM MESSAGE
    */
-  socket.on("system-message", (message) => {
-    addSystem(message.text);
-  });
+  socket.on(
+    "system-message",
+    (message) => {
+      if (message?.text) {
+        addSystem(
+          message.text
+        );
+      }
+    }
+  );
 
   /*
-   * PRESENCE
+   * PARTICIPANT PRESENCE
    */
   socket.on(
     "presence",
     ({ participants }) => {
-      updatePeople(participants);
+      updatePeople(
+        participants
+      );
 
-      if (
-        pendingCreated &&
-        participants > 1
-      ) {
-        $("waitStatus").textContent =
-          "🟢 Someone joined — you're connected!";
+      if (pendingCreated) {
+        const waitStatus =
+          $("waitStatus");
+
+        if (waitStatus) {
+          if (participants > 1) {
+            waitStatus.textContent =
+              "🟢 Someone joined — you're connected!";
+          } else {
+            waitStatus.textContent =
+              "🟡 Waiting for someone to join...";
+          }
+        }
       }
     }
   );
@@ -342,8 +678,18 @@ function connectSocket() {
    */
   socket.on(
     "typing",
-    ({ username, isTyping }) => {
-      $("typing").textContent =
+    ({
+      username,
+      isTyping
+    }) => {
+      const typing =
+        $("typing");
+
+      if (!typing) {
+        return;
+      }
+
+      typing.textContent =
         isTyping
           ? `${username} is typing...`
           : "";
@@ -359,28 +705,34 @@ function connectSocket() {
 
 async function createRoom() {
   const name =
-    $("createName").value.trim();
+    $("createName")
+      .value
+      .trim();
 
-  $("createError").textContent = "";
+  $("createError").textContent =
+    "";
 
   if (!name) {
     $("createError").textContent =
       "Please enter your name.";
+
     return;
   }
 
   try {
-    const response = await fetch(
-      "/api/rooms",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type":
-            "application/json"
-        },
-        body: JSON.stringify({})
-      }
-    );
+    const response =
+      await fetch(
+        "/api/rooms",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify({})
+        }
+      );
 
     const data =
       await response.json();
@@ -400,17 +752,19 @@ async function createRoom() {
       return;
     }
 
+    /*
+     * Bersihkan session room sebelumnya.
+     */
+    clearSession();
+
+    currentCode = null;
+    currentName = null;
+    joinedSocketId = null;
+
     pendingCreated = {
       code: data.code,
       name
     };
-
-    /*
-     * Creator belum masuk ke halaman chat,
-     * jadi currentCode/currentName belum diisi.
-     */
-    currentCode = null;
-    currentName = null;
 
     $("createdCode").textContent =
       data.code;
@@ -418,15 +772,17 @@ async function createRoom() {
     $("waitStatus").textContent =
       "🟡 Waiting for someone to join...";
 
-    generateRoomQR(data.code);
+    generateRoomQR(
+      data.code
+    );
 
     show("created");
 
     connectSocket();
 
     /*
-     * Kalau socket sebelumnya sudah connected,
-     * event connect tidak akan dipanggil lagi.
+     * Kalau socket memang sudah connected,
+     * langsung join room baru.
      */
     if (socket.connected) {
       rejoinActiveRoom();
@@ -460,12 +816,61 @@ function enterCreatedChat() {
   currentName =
     pendingCreated.name;
 
-  $("chatCode").textContent =
-    currentCode;
+  /*
+   * Sekarang creator resmi berada di chat.
+   * Simpan session untuk refresh.
+   */
+  saveSession();
 
-  $("messages").innerHTML = "";
+  const chatCode =
+    $("chatCode");
+
+  if (chatCode) {
+    chatCode.textContent =
+      currentCode;
+  }
+
+  const messages =
+    $("messages");
+
+  if (messages) {
+    messages.innerHTML = "";
+  }
 
   show("chat");
+
+  /*
+   * Ambil history lagi supaya pesan yang
+   * masuk saat creator masih di ROOM READY
+   * juga bisa ditampilkan.
+   */
+  if (
+    socket &&
+    socket.connected
+  ) {
+    socket.emit(
+      "join-room",
+      {
+        code: currentCode,
+        username: currentName
+      },
+      (res) => {
+        if (
+          res &&
+          res.ok
+        ) {
+          applyJoinResult(
+            {
+              code: currentCode,
+              name: currentName,
+              type: "chat"
+            },
+            res
+          );
+        }
+      }
+    );
+  }
 }
 
 /*
@@ -476,7 +881,9 @@ function enterCreatedChat() {
 
 function joinRoom() {
   const name =
-    $("joinName").value.trim();
+    $("joinName")
+      .value
+      .trim();
 
   const code =
     $("joinCode")
@@ -484,157 +891,120 @@ function joinRoom() {
       .trim()
       .toUpperCase();
 
-  $("joinError").textContent = "";
+  $("joinError").textContent =
+    "";
 
   if (!name) {
     $("joinError").textContent =
       "Please enter your name.";
+
     return;
   }
 
+  /*
+   * Format XXX-XXX-XXX = 11 karakter.
+   */
   if (code.length !== 11) {
     $("joinError").textContent =
       "Enter a valid XXX-XXX-XXX code.";
+
     return;
   }
 
-  currentCode = code;
-  currentName = name;
-
   /*
-   * User ini bukan creator yang sedang
-   * berada di halaman ROOM READY.
+   * Jangan simpan session sebelum server
+   * memastikan room benar-benar valid.
    */
-  pendingCreated = null;
-
-  connectSocket();
-
   const room = {
     code,
     name,
     type: "chat"
   };
 
-  /*
-   * Kalau socket sudah tersambung,
-   * join langsung.
-   *
-   * Kalau belum, event "connect"
-   * akan menjalankan rejoinActiveRoom().
-   */
+  currentCode = code;
+  currentName = name;
+  pendingCreated = null;
+  joinedSocketId = null;
+
+  connectSocket();
+
+  const successfulJoin = () => {
+    /*
+     * Baru simpan setelah server menerima join.
+     */
+    saveSession();
+
+    $("chatCode").textContent =
+      code;
+
+    show("chat");
+  };
+
+  const failedJoin = (error) => {
+    /*
+     * Join gagal, jangan simpan room invalid.
+     */
+    clearSession();
+
+    currentCode = null;
+    currentName = null;
+    joinedSocketId = null;
+
+    $("joinError").textContent =
+      error;
+  };
+
   if (socket.connected) {
-    joinSocketRoom(room);
+    joinSocketRoom(
+      room,
+      successfulJoin,
+      failedJoin
+    );
+
+    return;
   }
 
   /*
-   * Kita tunggu callback join berhasil
-   * sebelum berpindah halaman.
+   * Jika socket masih menghubungkan,
+   * event connect akan melakukan join.
+   *
+   * Kita tunggu sampai join berhasil.
    */
+  let attempts = 0;
 
-  const waitForJoin = setInterval(() => {
-    if (
-      socket &&
-      socket.connected &&
-      joinedSocketId === socket.id
-    ) {
-      clearInterval(waitForJoin);
+  const waitForJoin =
+    setInterval(() => {
+      attempts += 1;
 
-      $("chatCode").textContent =
-        code;
+      if (
+        socket &&
+        socket.connected
+      ) {
+        clearInterval(
+          waitForJoin
+        );
 
-      show("chat");
-    }
-  }, 50);
+        joinSocketRoom(
+          room,
+          successfulJoin,
+          failedJoin
+        );
 
-  /*
-   * Jangan biarkan interval berjalan selamanya.
-   */
-  setTimeout(() => {
-    clearInterval(waitForJoin);
-  }, 10000);
-}
+        return;
+      }
 
-/*
- * =========================================================
- * PARTICIPANTS
- * =========================================================
- */
+      if (attempts >= 200) {
+        clearInterval(
+          waitForJoin
+        );
 
-function updatePeople(n) {
-  $("people").textContent = n;
-}
+        currentCode = null;
+        currentName = null;
 
-/*
- * =========================================================
- * MESSAGE DISPLAY
- * =========================================================
- */
-
-function addMessage(message) {
-  const wrap =
-    document.createElement("div");
-
-  wrap.className =
-    "msg" +
-    (
-      message.username === currentName
-        ? " mine"
-        : ""
-    );
-
-  const bubble =
-    document.createElement("div");
-
-  bubble.className = "bubble";
-  bubble.textContent =
-    message.text;
-
-  const meta =
-    document.createElement("div");
-
-  meta.className = "meta";
-
-  meta.textContent =
-    `${message.username} · ${
-      new Date(
-        message.timestamp
-      ).toLocaleTimeString(
-        [],
-        {
-          hour: "2-digit",
-          minute: "2-digit"
-        }
-      )
-    }`;
-
-  wrap.append(
-    bubble,
-    meta
-  );
-
-  $("messages").appendChild(wrap);
-
-  $("messages").scrollTop =
-    $("messages").scrollHeight;
-}
-
-/*
- * =========================================================
- * SYSTEM MESSAGE
- * =========================================================
- */
-
-function addSystem(text) {
-  const element =
-    document.createElement("div");
-
-  element.className = "system";
-  element.textContent = text;
-
-  $("messages").appendChild(element);
-
-  $("messages").scrollTop =
-    $("messages").scrollHeight;
+        $("joinError").textContent =
+          "Connection timeout. Please try again.";
+      }
+    }, 50);
 }
 
 /*
@@ -652,26 +1022,27 @@ function sendMessage(event) {
   const text =
     input.value.trim();
 
+  if (!text) {
+    return;
+  }
+
   if (
-    !text ||
     !socket ||
-    !socket.connected
+    !socket.connected ||
+    !joinedSocketId
   ) {
-    if (
-      text &&
-      (!socket || !socket.connected)
-    ) {
-      toast(
-        "Connection lost. Reconnecting..."
-      );
-    }
+    toast(
+      "Connection lost. Reconnecting..."
+    );
 
     return;
   }
 
   socket.emit(
     "message",
-    { text },
+    {
+      text
+    },
     (res) => {
       if (!res || !res.ok) {
         toast(
@@ -700,38 +1071,46 @@ function sendMessage(event) {
 
 let typingTimer;
 
-$("messageInput").addEventListener(
-  "input",
-  () => {
-    if (
-      !socket ||
-      !socket.connected ||
-      !joinedSocketId
-    ) {
-      return;
+const messageInput =
+  $("messageInput");
+
+if (messageInput) {
+  messageInput.addEventListener(
+    "input",
+    () => {
+      if (
+        !socket ||
+        !socket.connected ||
+        !joinedSocketId
+      ) {
+        return;
+      }
+
+      socket.emit(
+        "typing",
+        true
+      );
+
+      clearTimeout(
+        typingTimer
+      );
+
+      typingTimer =
+        setTimeout(() => {
+          if (
+            socket &&
+            socket.connected &&
+            joinedSocketId
+          ) {
+            socket.emit(
+              "typing",
+              false
+            );
+          }
+        }, 800);
     }
-
-    socket.emit(
-      "typing",
-      true
-    );
-
-    clearTimeout(typingTimer);
-
-    typingTimer =
-      setTimeout(() => {
-        if (
-          socket &&
-          socket.connected
-        ) {
-          socket.emit(
-            "typing",
-            false
-          );
-        }
-      }, 800);
-  }
-);
+  );
+}
 
 /*
  * =========================================================
@@ -740,38 +1119,73 @@ $("messageInput").addEventListener(
  */
 
 function leaveRoom() {
-  if (
-    socket &&
-    socket.connected
-  ) {
-    socket.emit("leave-room");
-  }
+  /*
+   * Hapus session terlebih dahulu supaya
+   * reconnect tidak otomatis join lagi.
+   */
+  clearSession();
 
   currentCode = null;
   currentName = null;
   pendingCreated = null;
   joinedSocketId = null;
 
-  $("typing").textContent = "";
+  clearTimeout(
+    typingTimer
+  );
+
+  const typing =
+    $("typing");
+
+  if (typing) {
+    typing.textContent = "";
+  }
+
+  if (
+    socket &&
+    socket.connected
+  ) {
+    socket.emit(
+      "typing",
+      false
+    );
+
+    socket.emit(
+      "leave-room"
+    );
+  }
 
   showHome();
 }
 
 /*
  * =========================================================
- * COPY CODE
+ * COPY ROOM CODE
  * =========================================================
  */
 
-function copyCode() {
+async function copyCode() {
   const code =
-    $("createdCode").textContent;
+    $("createdCode")
+      .textContent;
 
-  navigator.clipboard
-    ?.writeText(code)
-    .then(() => {
-      toast("Room code copied.");
-    });
+  try {
+    await navigator.clipboard
+      .writeText(code);
+
+    toast(
+      "Room code copied."
+    );
+  } catch (error) {
+    console.error(
+      "Copy failed:",
+      error
+    );
+
+    toast(
+      "Could not copy room code."
+    );
+  }
 }
 
 /*
@@ -782,7 +1196,8 @@ function copyCode() {
 
 async function shareRoom() {
   const code =
-    $("createdCode").textContent;
+    $("createdCode")
+      .textContent;
 
   const url =
     `${location.origin}/?join=${
@@ -794,26 +1209,39 @@ async function shareRoom() {
       await navigator.share({
         title:
           "Join my CodeConnect room",
+
         text:
           `Join my private room: ${code}`,
+
         url
       });
-    } else {
-      await navigator.clipboard.writeText(
+
+      return;
+    }
+
+    await navigator.clipboard
+      .writeText(
         `${code}\n${url}`
       );
 
-      toast("Invite copied.");
-    }
+    toast(
+      "Invite copied."
+    );
+
   } catch (error) {
     /*
-     * User menekan cancel pada native share
-     * bukan merupakan error aplikasi.
+     * AbortError biasanya berarti user
+     * membatalkan native Share.
      */
-    console.log(
-      "Share cancelled:",
-      error
-    );
+    if (
+      error?.name !==
+      "AbortError"
+    ) {
+      console.error(
+        "Share failed:",
+        error
+      );
+    }
   }
 }
 
@@ -824,8 +1252,13 @@ async function shareRoom() {
  */
 
 function premiumDemo() {
-  $("premiumNote").textContent =
-    "Premium checkout is scaffolded for the next step. Connect a payment gateway to activate real subscriptions.";
+  const premiumNote =
+    $("premiumNote");
+
+  if (premiumNote) {
+    premiumNote.textContent =
+      "Premium checkout is scaffolded for the next step. Connect a payment gateway to activate real subscriptions.";
+  }
 
   toast(
     "Premium checkout coming next."
@@ -834,7 +1267,130 @@ function premiumDemo() {
 
 /*
  * =========================================================
- * INVITE LINK
+ * RESTORE SESSION AFTER REFRESH
+ * =========================================================
+ */
+
+function restoreSession() {
+  const saved =
+    loadSession();
+
+  if (!saved) {
+    return;
+  }
+
+  currentCode =
+    saved.code;
+
+  currentName =
+    saved.name;
+
+  pendingCreated = null;
+  joinedSocketId = null;
+
+  const chatCode =
+    $("chatCode");
+
+  if (chatCode) {
+    chatCode.textContent =
+      currentCode;
+  }
+
+  const room = {
+    code: currentCode,
+    name: currentName,
+    type: "chat"
+  };
+
+  connectSocket();
+
+  const restoreSuccess =
+    () => {
+      show("chat");
+
+      toast(
+        "Room restored."
+      );
+    };
+
+  const restoreFailure =
+    (error) => {
+      console.error(
+        "Restore failed:",
+        error
+      );
+
+      clearSession();
+
+      currentCode = null;
+      currentName = null;
+      joinedSocketId = null;
+
+      showHome();
+
+      toast(
+        error ||
+        "Could not restore room."
+      );
+    };
+
+  /*
+   * Socket mungkin sudah connected.
+   */
+  if (socket.connected) {
+    joinSocketRoom(
+      room,
+      restoreSuccess,
+      restoreFailure
+    );
+
+    return;
+  }
+
+  /*
+   * Tunggu socket terhubung.
+   */
+  let attempts = 0;
+
+  const waitForSocket =
+    setInterval(() => {
+      attempts += 1;
+
+      if (
+        socket &&
+        socket.connected
+      ) {
+        clearInterval(
+          waitForSocket
+        );
+
+        joinSocketRoom(
+          room,
+          restoreSuccess,
+          restoreFailure
+        );
+
+        return;
+      }
+
+      /*
+       * Sekitar 10 detik.
+       */
+      if (attempts >= 200) {
+        clearInterval(
+          waitForSocket
+        );
+
+        restoreFailure(
+          "Connection timeout."
+        );
+      }
+    }, 50);
+}
+
+/*
+ * =========================================================
+ * PAGE LOAD
  * =========================================================
  */
 
@@ -846,18 +1402,48 @@ window.addEventListener(
         location.search
       );
 
-    const join =
+    const inviteCode =
       params.get("join");
 
-    if (join) {
+    /*
+     * Invite link mempunyai prioritas.
+     *
+     * Contoh:
+     * ?join=ABC-DEF-GHJ
+     */
+    if (inviteCode) {
+      /*
+       * Jangan otomatis masuk ke room lama
+       * ketika user membuka invite baru.
+       */
+      clearSession();
+
+      currentCode = null;
+      currentName = null;
+      pendingCreated = null;
+      joinedSocketId = null;
+
       showJoin();
 
-      $("joinCode").value =
-        join;
+      const joinCode =
+        $("joinCode");
 
-      formatCode(
-        $("joinCode")
-      );
+      if (joinCode) {
+        joinCode.value =
+          inviteCode;
+
+        formatCode(
+          joinCode
+        );
+      }
+
+      return;
     }
+
+    /*
+     * Tidak ada invite URL.
+     * Coba restore room dari session.
+     */
+    restoreSession();
   }
 );
