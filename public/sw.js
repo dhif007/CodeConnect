@@ -1,4 +1,4 @@
-const CACHE_NAME = "codeconnect-v1";
+const CACHE_NAME = "codeconnect-v2";
 
 const APP_SHELL = [
   "/",
@@ -64,41 +64,84 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
 
   /*
-   * Jangan cache Socket.IO.
-   * Real-time connection harus selalu ke server.
+   * Socket.IO harus selalu online.
    */
-  if (url.pathname.startsWith("/socket.io/")) {
+  if (
+    url.pathname.startsWith("/socket.io/")
+  ) {
     return;
   }
 
   /*
-   * Jangan cache API.
-   * Room, QR dan data chat harus selalu terbaru.
+   * API tidak boleh memakai cache lama.
    */
-  if (url.pathname.startsWith("/api/")) {
+  if (
+    url.pathname.startsWith("/api/")
+  ) {
     return;
   }
 
+  /*
+   * Untuk navigasi halaman:
+   * coba network dulu,
+   * lalu fallback ke index.html.
+   */
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const copy = response.clone();
+
+          caches.open(CACHE_NAME)
+            .then((cache) => {
+              cache.put(
+                "/index.html",
+                copy
+              );
+            });
+
+          return response;
+        })
+        .catch(() => {
+          return caches.match(
+            "/index.html"
+          );
+        })
+    );
+
+    return;
+  }
+
+  /*
+   * Untuk CSS, JS, icon, manifest:
+   * network-first supaya update terbaru
+   * lebih cepat masuk.
+   */
   event.respondWith(
     fetch(request)
       .then((response) => {
-        /*
-         * Simpan versi terbaru ke cache.
-         */
-        const copy = response.clone();
+        if (
+          !response ||
+          response.status !== 200 ||
+          response.type === "opaque"
+        ) {
+          return response;
+        }
+
+        const copy =
+          response.clone();
 
         caches.open(CACHE_NAME)
           .then((cache) => {
-            cache.put(request, copy);
+            cache.put(
+              request,
+              copy
+            );
           });
 
         return response;
       })
       .catch(() => {
-        /*
-         * Kalau internet mati,
-         * coba ambil dari cache.
-         */
         return caches.match(request);
       })
   );
