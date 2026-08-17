@@ -4,8 +4,7 @@
  * =========================================================
  */
 
-const CACHE_NAME = "codeconnect-v1";
-
+const CACHE_NAME = "codeconnect-v3";
 const STATIC_FILES = [
   "/",
   "/index.html",
@@ -222,79 +221,65 @@ self.addEventListener("push", event => {
 
 self.addEventListener(
   "notificationclick",
-  event => {
+  (event) => {
 
     event.notification.close();
 
-
     const targetUrl =
       event.notification
-        .data?.url ||
-      "/";
-
+        .data?.url || "/";
 
     event.waitUntil(
-
       clients
         .matchAll({
-
           type: "window",
-
-          includeUncontrolled:
-            true
-
+          includeUncontrolled: true
         })
+        .then(async (clientList) => {
 
-        .then(
-          clientList => {
-
-            /*
-             * Jika CodeConnect
-             * sudah terbuka,
-             * fokus ke jendela itu.
-             */
-
-            for (
-              const client
-              of clientList
+          /*
+           * Jika PWA sudah terbuka,
+           * arahkan window tersebut
+           * ke room yang benar.
+           */
+          for (
+            const client
+            of clientList
+          ) {
+            if (
+              "navigate" in client &&
+              "focus" in client
             ) {
-
-              if (
-                "focus" in client
-              ) {
-
-                client.navigate(
+              try {
+                await client.navigate(
                   targetUrl
                 );
 
                 return client.focus();
 
-              }
-
-            }
-
-
-            /*
-             * Jika CodeConnect
-             * belum terbuka,
-             * buka aplikasinya.
-             */
-
-            if (
-              clients.openWindow
-            ) {
-
-              return clients
-                .openWindow(
-                  targetUrl
+              } catch (error) {
+                console.error(
+                  "[SW] Navigation failed:",
+                  error
                 );
-
+              }
             }
-
           }
-        )
 
+          /*
+           * Jika PWA benar-benar tertutup,
+           * buka window baru ke room.
+           */
+          if (
+            clients.openWindow
+          ) {
+            return clients.openWindow(
+              targetUrl
+            );
+          }
+
+          return null;
+        })
     );
-
   }
 );
