@@ -120,48 +120,53 @@ async function cleanup() {
   try {
     const now = Date.now();
 
-    for (const [code, sockets] of roomSockets) {
-      if (sockets.size === 0) {
-        const result = await pool.query(
-          `
-          DELETE FROM rooms
-          WHERE code = $1
-          AND expires_at <= NOW()
-          `,
-          [code]
-        );
+    /*
+     * Ambil daftar room yang saat ini masih memiliki
+     * socket/pengguna aktif.
+     */
+    const activeRoomCodes = [];
 
-        if (result.rowCount > 0) {
-          roomSockets.delete(code);
-        }
+    for (const [code, sockets] of roomSockets) {
+      if (sockets.size > 0) {
+        activeRoomCodes.push(code);
+      } else {
+        /*
+         * Tidak perlu menyimpan room kosong di memory.
+         */
+        roomSockets.delete(code);
       }
     }
 
     /*
-     * Hapus room yang sudah expired dan tidak
-     * sedang digunakan oleh socket.
+     * Hapus room PostgreSQL yang:
+     * - sudah melewati expires_at
+     * - tidak sedang memiliki pengguna aktif
+     *
+     * Messages ikut terhapus otomatis karena
+     * ON DELETE CASCADE pada tabel messages.
      */
-    await pool.query(`
-      DELETE FROM rooms r
-      WHERE r.expires_at <= NOW()
-      AND NOT EXISTS (
-        SELECT 1
-        FROM (
-          SELECT UNNEST(ARRAY[]::TEXT[]) AS code
-        ) active
-        WHERE active.code = r.code
-      )
-      AND NOT EXISTS (
-        SELECT 1
-        FROM information_schema.tables
-        WHERE table_name = 'rooms'
-        AND FALSE
-      )
-    `).catch(() => {});
+    let result;
+
+    if (activeRoomCodes.length === 0) {
+      result = await pool.query(`
+        DELETE FROM rooms
+        WHERE expires_at <= NOW()
+      `);
+    } else {
+      result = await pool.query(
+        `
+        DELETE FROM rooms
+        WHERE expires_at <= NOW()
+        AND NOT (code = ANY($1::text[]))
+        `,
+        [activeRoomCodes]
+      );
+    }
 
     console.log(
-      `Cleanup completed at ${new Date(now).toISOString()}`
+      `Cleanup completed at ${new Date(now).toISOString()} — ${result.rowCount} expired room(s) removed.`
     );
+
   } catch (error) {
     console.error("Cleanup error:", error.message);
   }
