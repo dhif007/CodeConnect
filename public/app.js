@@ -1583,48 +1583,184 @@ async function enableNotifications() {
   }
 
   try {
-    /*
-     * Harus dipanggil langsung dari tap/click user.
-     */
     const permission =
-      await Notification.requestPermission();
+      await Notification
+        .requestPermission();
+
+    if (
+      permission !== "granted"
+    ) {
+      updateNotificationButton();
+
+      if (
+        permission === "denied"
+      ) {
+        toast(
+          "Notifications were blocked."
+        );
+      } else {
+        toast(
+          "Notification permission was not granted."
+        );
+      }
+
+      return;
+    }
+
+    await subscribeToPush();
 
     updateNotificationButton();
 
-    if (
-      permission === "granted"
-    ) {
-      toast(
-        "Notifications enabled."
-      );
-
-      return;
-    }
-
-    if (
-      permission === "denied"
-    ) {
-      toast(
-        "Notifications were blocked."
-      );
-
-      return;
-    }
-
     toast(
-      "Notification permission was not granted."
+      "Notifications enabled."
     );
 
   } catch (error) {
     console.error(
-      "Notification permission error:",
+      "Enable notifications error:",
       error
     );
 
     toast(
+      error.message ||
       "Could not enable notifications."
     );
   }
+}
+/*
+ * =========================================================
+ * PUSH SUBSCRIPTION
+ * =========================================================
+ */
+
+function urlBase64ToUint8Array(base64String) {
+  const padding =
+    "=".repeat(
+      (4 - (base64String.length % 4)) % 4
+    );
+
+  const base64 =
+    (base64String + padding)
+      .replace(/-/g, "+")
+      .replace(/_/g, "/");
+
+  const rawData =
+    window.atob(base64);
+
+  const outputArray =
+    new Uint8Array(rawData.length);
+
+  for (
+    let i = 0;
+    i < rawData.length;
+    i++
+  ) {
+    outputArray[i] =
+      rawData.charCodeAt(i);
+  }
+
+  return outputArray;
+}
+
+async function subscribeToPush() {
+  if (
+    !("serviceWorker" in navigator) ||
+    !("PushManager" in window)
+  ) {
+    throw new Error(
+      "Push notifications are not supported."
+    );
+  }
+
+  const registration =
+    await navigator.serviceWorker.ready;
+
+  const keyResponse =
+    await fetch(
+      "/api/push/public-key",
+      {
+        cache: "no-store"
+      }
+    );
+
+  if (!keyResponse.ok) {
+    throw new Error(
+      "Could not load push public key."
+    );
+  }
+
+  const keyData =
+    await keyResponse.json();
+
+  if (!keyData.publicKey) {
+    throw new Error(
+      "Push public key is missing."
+    );
+  }
+
+  let subscription =
+    await registration
+      .pushManager
+      .getSubscription();
+
+  if (!subscription) {
+    subscription =
+      await registration
+        .pushManager
+        .subscribe({
+          userVisibleOnly: true,
+          applicationServerKey:
+            urlBase64ToUint8Array(
+              keyData.publicKey
+            )
+        });
+  }
+
+  if (
+    !currentCode ||
+    !currentName
+  ) {
+    throw new Error(
+      "Join a room before enabling notifications."
+    );
+  }
+
+  const response =
+    await fetch(
+      "/api/push/subscribe",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json"
+        },
+
+        body:
+          JSON.stringify({
+            subscription:
+              subscription.toJSON(),
+
+            roomCode:
+              currentCode,
+
+            username:
+              currentName
+          })
+      }
+    );
+
+  const data =
+    await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      data.error ||
+      "Could not save push subscription."
+    );
+  }
+
+  return subscription;
 }
 /*
  * =========================================================
