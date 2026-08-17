@@ -23,6 +23,34 @@ function formatCode(el){
   let v=el.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,9);
   el.value=v.match(/.{1,3}/g)?.join("-")||"";
 }
+
+function generateRoomQR(code){
+  const canvas = $("qrCanvas");
+
+  if(!canvas || typeof QRCode === "undefined"){
+    console.error("QR Code library is not available.");
+    return;
+  }
+
+  const inviteUrl =
+    `${location.origin}/?join=${encodeURIComponent(code)}`;
+
+  QRCode.toCanvas(
+    canvas,
+    inviteUrl,
+    {
+      width: 220,
+      margin: 2,
+      errorCorrectionLevel: "M"
+    },
+    (error)=>{
+      if(error){
+        console.error("QR generation failed:", error);
+      }
+    }
+  );
+}
+
 async function createRoom(){
   const name=$("createName").value.trim();
   $("createError").textContent="";
@@ -53,10 +81,12 @@ async function createRoom(){
 
     pendingCreated={code:data.code,name};
 
-    $("createdCode").textContent=data.code;
-    $("waitStatus").textContent="🟡 Waiting for someone to join...";
+$("createdCode").textContent=data.code;
+$("waitStatus").textContent="🟡 Waiting for someone to join...";
 
-    show("created");
+generateRoomQR(data.code);
+
+show("created");
 
     connectSocket();
 
