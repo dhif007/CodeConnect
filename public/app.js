@@ -21,6 +21,24 @@ const views = [
   "pricing"
 ];
 
+function updateAppHeight() {
+  document.documentElement.style
+    .setProperty(
+      "--app-height",
+      `${window.innerHeight}px`
+    );
+}
+
+window.addEventListener(
+  "resize",
+  updateAppHeight
+);
+
+window.addEventListener(
+  "orientationchange",
+  updateAppHeight
+);
+
 /*
  * =========================================================
  * SESSION STORAGE
@@ -1387,6 +1405,8 @@ function restoreSession() {
 window.addEventListener(
   "load",
   () => {
+    updateAppHeight();
+
     const params =
       new URLSearchParams(
         location.search
