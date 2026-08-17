@@ -104,22 +104,61 @@
     </section>
 
     <section id="chat" class="view">
-      <div class="chat-shell">
-        <div class="chat-head">
-          <div>
-            <button class="back" onclick="leaveRoom()">← Leave</button>
-            <strong>CodeConnect</strong>
-          </div>
-          <div class="room-meta"><span id="connDot">●</span><span id="connText">Connected</span> · <b id="chatCode">---</b> · <span id="people">1</span>/50</div>
-        </div>
-        <div id="messages" class="messages"></div>
-        <div id="typing" class="typing"></div>
-        <form class="composer" onsubmit="sendMessage(event)">
-          <input id="messageInput" autocomplete="off" placeholder="Type a message..." maxlength="2000" />
-          <button class="send" aria-label="Send">↑</button>
-        </form>
+  <div class="chat-shell">
+
+    <div class="chat-head">
+      <div class="chat-head-left">
+        <button
+          class="chat-leave"
+          onclick="leaveRoom()"
+        >
+          ← Leave
+        </button>
+
+        <strong>CodeConnect</strong>
       </div>
-    </section>
+
+      <div class="room-meta">
+        <span id="connDot">●</span>
+        <span id="connText">Connected</span>
+        ·
+        <b id="chatCode">---</b>
+        ·
+        <span id="people">1</span>/50
+      </div>
+    </div>
+
+    <div
+      id="messages"
+      class="messages"
+    ></div>
+
+    <div
+      id="typing"
+      class="typing"
+    ></div>
+
+    <form
+      class="composer"
+      onsubmit="sendMessage(event)"
+    >
+      <input
+        id="messageInput"
+        autocomplete="off"
+        placeholder="Type a message..."
+        maxlength="2000"
+      />
+
+      <button
+        class="send"
+        aria-label="Send"
+      >
+        ↑
+      </button>
+    </form>
+
+  </div>
+</section>
 
     <section id="pricing" class="view">
       <div class="pricing-head">
