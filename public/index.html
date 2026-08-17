@@ -67,7 +67,9 @@
           <button class="secondary" onclick="copyCode()">Copy Code</button>
           <button class="secondary" onclick="shareRoom()">Share</button>
         </div>
-        <div class="qr-placeholder" id="qrBox">QR</div>
+        <div class="qr-placeholder" id="qrBox">
+  <canvas id="qrCanvas"></canvas>
+</div>
         <p id="waitStatus" class="status">🟡 Waiting for someone to join...</p>
         <button class="primary full" onclick="enterCreatedChat()">Enter Chat</button>
       </div>
