@@ -123,6 +123,15 @@ function show(id) {
     }
   });
 
+  /*
+   * Saat berada di chat, sembunyikan navbar utama.
+   * Chat mempunyai header sendiri.
+   */
+  document.body.classList.toggle(
+    "chat-mode",
+    id === "chat"
+  );
+
   window.scrollTo(0, 0);
 }
 
